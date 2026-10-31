@@ -12,7 +12,7 @@ import asyncio
 import time
 
 import pytest
-from conftest import TINY_SCENARIO, make_session, write_scenario
+from conftest import TINY_SCENARIO, make_session, patch_slow_engine, write_scenario
 
 from cubesat.session import LiveSource, SessionError
 from cubesat.sim import RunCancelled, run_scenario
@@ -68,17 +68,13 @@ def test_three_concurrent_starts_leave_last_consistent(tmp_path, monkeypatch):
 def test_stale_inject_discarded_when_run_replaced(tmp_path, monkeypatch):
     write_scenario(tmp_path, "a.json", name="a")
     write_scenario(tmp_path, "b.json", name="b")
-    real_wf = LiveSource.with_failure.__func__
-
-    def slow_wf(cls, base, sat, mode, t_now, degrade_s=0.0, cancel_event=None):
-        time.sleep(0.3)  # deliberately ignores cancel: the stale result still arrives
-        return real_wf(cls, base, sat, mode, t_now, degrade_s, None)
+    # perf P1: the injection's trial horizon is the slow part (0.1 s per tick)
+    patch_slow_engine(monkeypatch, delay=0.1, after_inject=True)
 
     async def main():
         _, session = make_session(tmp_path)
         await session.start_live("a.json", None, 1.0)
         await session.pause()
-        monkeypatch.setattr("cubesat.session.LiveSource.with_failure", classmethod(slow_wf))
         inj = asyncio.create_task(session.inject_failure("SAT-1", "DEAD"))
         await asyncio.sleep(0.05)  # recompute in flight
         start_b = asyncio.create_task(session.start_live("b.json", None, 1.0))

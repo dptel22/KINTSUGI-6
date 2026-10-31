@@ -17,6 +17,8 @@ import pytest
 from conftest import (
     TINY_SCENARIO,
     TINY_SCENARIO_NO_FAILURES,
+    patch_slow_engine,
+    producer_threads,
     tiny_log_lines,
     write_log,
     write_tiny_scenario,
@@ -232,16 +234,14 @@ def test_session_compute_timeout_504_and_stopped(tmp_path, monkeypatch):
     """Section 7.1 compute-timeout row: a run that exceeds the wait_for window
     raises SessionError 504, tears the session back down to stopped, and leaves
     no driver task (the wall-clock timeout lives at the server, never in
-    sim.py -- section 9.3)."""
+    sim.py -- section 9.3). Perf P1: the window covers the first lookahead of
+    the streaming producer, so the slow seam is the engine step."""
 
     async def main():
         hub, session = _make_session(tmp_path)
         write_tiny_scenario(tmp_path / "scenarios")
         session.run_timeout_s = 0.05
-        monkeypatch.setattr(
-            "cubesat.session.run_scenario",
-            lambda scenario, cancel_event=None: time.sleep(0.5) or [],
-        )
+        patch_slow_engine(monkeypatch, delay=0.5)
         with pytest.raises(SessionError) as exc:
             await session.start_live("tiny.json", None, SPEED_MAX)
         assert exc.value.status_code == 504
@@ -254,62 +254,46 @@ def test_session_compute_timeout_504_and_stopped(tmp_path, monkeypatch):
 
 def test_session_compute_timeout_cancels_compute_thread(tmp_path, monkeypatch):
     """Audit regression (medium): the run timeout used to abandon a still-
-    running run_scenario thread, so one oversized scenario could pin CPU in
-    the shared server process after its own 504. Now start_live hands the run
-    a cancel event and SETS it on timeout; the thread exits at its next tick
-    (sim.run_scenario contract) instead of running to completion."""
-    observed = []
-
-    def fake_run(scenario, cancel_event=None):
-        observed.append(cancel_event)
-        # Block until the Session cancels (or 5 s: a real failure signal, far
-        # above the 0.05 s timeout, so the test fails by assertion, not hang).
-        assert cancel_event is not None and cancel_event.wait(5.0)
-        raise AssertionError("cancel event was set: the orphan thread must stop")
+    running compute thread, so one oversized scenario could pin CPU in the
+    shared server process after its own 504. The streaming producer is
+    stopped on timeout and exits before its next tick."""
 
     async def main():
         hub, session = _make_session(tmp_path)
         write_tiny_scenario(tmp_path / "scenarios")
         session.run_timeout_s = 0.05
-        monkeypatch.setattr("cubesat.session.run_scenario", fake_run)
+        patch_slow_engine(monkeypatch, delay=0.2)
+        producer_threads(baseline=True)
         with pytest.raises(SessionError) as exc:
             await session.start_live("tiny.json", None, SPEED_MAX)
         assert exc.value.status_code == 504
-        assert observed and observed[0].is_set()
+        deadline = time.monotonic() + 2.0
+        while producer_threads() and time.monotonic() < deadline:
+            await asyncio.sleep(0.01)
+        assert not producer_threads(), "orphan producer after the 504"
 
     asyncio.run(main())
 
 
 def test_inject_timeout_cancels_recompute_thread(tmp_path, monkeypatch):
-    """Audit regression (medium), inject path: the same orphan-thread pattern
-    lived in inject_failure's recompute wait; its cancel event must be set on
-    timeout too."""
-    observed = []
-    started = threading.Event()
-
-    def fake_with_failure(
-        cls, base, sat_display_id, mode, t_now, degrade_s=0.0, cancel_event=None
-    ):
-        observed.append(cancel_event)
-        started.set()
-        assert cancel_event is not None and cancel_event.wait(5.0)
-        raise AssertionError("cancel event was set: the orphan recompute must stop")
+    """Audit regression (medium), inject path: an inject that outlives the
+    window is a 504, its worker is cancelled before it commits (no late
+    inject), and the old run plays on."""
 
     async def main():
         session = _make_session(tmp_path)[1]
-        write_tiny_scenario(tmp_path / "scenarios")
+        write_tiny_scenario(tmp_path / "scenarios", TINY_SCENARIO_NO_FAILURES)
+        patch_slow_engine(monkeypatch, delay=0.2, after_inject=True)
         await session.start_live("tiny.json", None, speed=1.0)
         await session.pause()  # hold the cursor mid-run so inject is allowed
         session.run_timeout_s = 0.05
-        monkeypatch.setattr(
-            "cubesat.session.LiveSource.with_failure",
-            classmethod(fake_with_failure),
-        )
+        source = session._source
         with pytest.raises(SessionError) as exc:
-            await session.inject_failure("SAT-2", "DEAD")  # SAT-1 already failed in tiny
+            await session.inject_failure("SAT-2", "DEAD")
         assert exc.value.status_code == 504
-        assert started.wait(5.0), "Worker thread never started"
-        assert observed and observed[0].is_set()
+        await asyncio.sleep(0.5)  # the worker saw the cancel at its next tick
+        assert source.scenario.failures == [] and source.injections == []
+        session.shutdown()
 
     asyncio.run(main())
 

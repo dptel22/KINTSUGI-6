@@ -99,3 +99,67 @@ def drain(q) -> list[dict]:
     while not q.empty():
         out.append(q.get_nowait())
     return out
+
+
+# ---- streaming compute seam (perf P1, cubesat/live_stream.py) -------------------
+
+
+class SlowEngine:
+    """A real SimV1 whose step() sleeps `delay` s (always, or only once something was
+    injected): stands in for an oversized run at the streaming seam, make_engine."""
+
+    def __init__(self, scenario, delay: float = 0.05, after_inject: bool = False) -> None:
+        from cubesat.sim import SimV1
+
+        self.real = SimV1(scenario)
+        self.scenario, self.grid = scenario, self.real.grid
+        self.cov = self.real.coverage_by_tick
+        self.delay, self.after_inject, self.injected = delay, after_inject, False
+
+    k = property(lambda self: self.real.k)
+    n_ticks = property(lambda self: self.real.n_ticks)
+    injections = property(lambda self: self.real.injections)
+
+    def header(self) -> dict:
+        return self.real.header()
+
+    def step(self) -> dict:
+        if not self.after_inject or self.injected:
+            import time
+
+            time.sleep(self.delay)
+        return self.real.step()
+
+    def inject(self, failure) -> None:
+        self.injected = True
+        self.real.inject(failure)
+
+    def run(self, cancel_event=None):
+        yield from self.real.run(cancel_event)
+
+
+def patch_slow_engine(monkeypatch, **kwargs) -> list:
+    """Every LiveStream built afterwards steps a SlowEngine; returns the streams' engines."""
+    made: list = []
+
+    def make(scenario):
+        made.append(SlowEngine(scenario, **kwargs))
+        return made[-1]
+
+    monkeypatch.setattr("cubesat.live_stream.make_engine", make)
+    return made
+
+
+_PRE_EXISTING: set = set()
+
+
+def producer_threads(baseline: bool = False) -> list:
+    """Live producer threads started since the last producer_threads(baseline=True)
+    (idle producers of sessions other tests abandoned without a reset are excluded)."""
+    import threading
+
+    alive = [t for t in threading.enumerate() if t.name == "live-stream"]
+    if baseline:
+        _PRE_EXISTING.clear()
+        _PRE_EXISTING.update(alive)
+    return [t for t in alive if t not in _PRE_EXISTING]
