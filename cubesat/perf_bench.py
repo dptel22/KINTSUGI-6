@@ -28,6 +28,7 @@ from pathlib import Path
 
 import numpy as np
 
+from cubesat.live_stream import LiveStream
 from cubesat.perf_ws import stats as _stats
 from cubesat.perf_ws import websocket_section
 from cubesat.scenario import Scenario, load_scenario
@@ -44,9 +45,9 @@ NOTES = [
     "first_frame_s: start_live() to the first sim_state with satellites, in-process Session, "
     "min_emit_interval=0 (so the 30 Hz cap cannot hide it; the socket run keeps the cap).",
     "inject_s: Session.inject_failure (DEAD, highest unscheduled sat id the replan "
-    "accepts) to the first sim_state after it. The harness parks the cursor at the stated percent "
-    "by setting "
-    "Session._cursor/_last_frame_t (private) while the driver idles at speed 0.01; inject is real.",
+    "accepts) to the first sim_state after it. The harness plays a fresh LiveStream to the stated "
+    "percent off the clock (lookahead full), installs it as Session._source/_cursor/_last_frame_t "
+    "(private) while the driver idles at speed 0.01; the inject is real.",
     "variant=true rows: committed v1 scenario with engine overridden in memory. Engine v2 has no "
     "recovery (no replan) yet, so its compute excludes the allocator sweep that dominates v1.",
     "cProfile inflates every number (deterministic profiler, one run): read the ranking only.",
@@ -159,14 +160,19 @@ async def _session_run(sdir: Path, fname: str, scn: Scenario) -> dict:
     t0 = _pc()
     await s.start_live(fname, speed=0.01)  # driver emits frame 0, then idles ~200 s per frame
     out: dict = {"first_frame": hub.since(t0), "inject": {}, "errors": []}
-    src = s._source
+    base = s._source.scenario  # policy seam etc. stay the session's own
+    n_frames = int(round(base.duration_s / base.dt_s)) + 1
     dead = {f.sat_id for f in scn.failures}
     cands = [i for i in range(scn.n_sats - 1, -1, -1) if i not in dead][:3]  # highest ids first
     for pct in (25, 50, 75):
-        idx = max(1, min(len(src.frames) - 1, len(src.frames) * pct // 100))
+        idx = max(1, min(n_frames - 1, n_frames * pct // 100))
         out["inject"][pct] = None
         for sat in cands:  # a refused inject (see "errors") falls back to the next candidate
             s._cancel_driver()
+            # streaming source played (consumed) up to frame idx - 1, as the driver would
+            src = await asyncio.to_thread(_played_to, base, idx)
+            if s._source is not src:
+                s._source.stop()
             s._source, s._cursor, s._last_frame_t, s.finished = src, idx, src.times[idx - 1], False
             t0 = _pc()
             try:
@@ -180,6 +186,16 @@ async def _session_run(sdir: Path, fname: str, scn: Scenario) -> dict:
             break
     await s.reset()
     return out
+
+
+def _played_to(scenario: Scenario, idx: int) -> LiveStream:
+    """A LiveStream whose playback consumed frames 0..idx-1 (lookahead buffered after)."""
+    src = LiveStream(scenario).start()
+    for i in range(idx):
+        src.wait_frame(i)
+        src.consume(i + 1)
+    src.wait_frame(idx - 1 + src.lookahead)
+    return src
 
 
 def _measure(e: dict, repeats: int, sdir: Path, profile: bool) -> dict:

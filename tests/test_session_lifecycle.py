@@ -9,13 +9,12 @@ recompute)."""
 from __future__ import annotations
 
 import asyncio
-import time
 
 import pytest
-from conftest import TINY_SCENARIO, make_session, write_scenario
+from conftest import TINY_SCENARIO, SlowEngine, make_session, patch_slow_engine, write_scenario
 
-from cubesat.session import LiveSource, SessionError
-from cubesat.sim import RunCancelled, run_scenario
+from cubesat.session import SessionError
+from cubesat.sim import run_scenario
 
 _real_run = run_scenario
 
@@ -31,13 +30,11 @@ def test_three_concurrent_starts_leave_last_consistent(tmp_path, monkeypatch):
         formation=dict(TINY_SCENARIO["formation"], n_slots=3),
     )
     delay = {"a": 0.3, "b": 0.2, "c": 0.1}  # the LAST start finishes FIRST
-
-    def slow_run(scenario, cancel_event=None):
-        if cancel_event.wait(delay[scenario.name]):
-            raise RunCancelled("cancelled")
-        return _real_run(scenario)
-
-    monkeypatch.setattr("cubesat.session.run_scenario", slow_run)
+    # perf P1: start waits for one lookahead (11 ticks here), so each tick is slowed
+    monkeypatch.setattr(
+        "cubesat.live_stream.make_engine",
+        lambda scenario: SlowEngine(scenario, delay=delay[scenario.name] / 11),
+    )
 
     async def main():
         _, session = make_session(tmp_path)
@@ -68,17 +65,13 @@ def test_three_concurrent_starts_leave_last_consistent(tmp_path, monkeypatch):
 def test_stale_inject_discarded_when_run_replaced(tmp_path, monkeypatch):
     write_scenario(tmp_path, "a.json", name="a")
     write_scenario(tmp_path, "b.json", name="b")
-    real_wf = LiveSource.with_failure.__func__
-
-    def slow_wf(cls, base, sat, mode, t_now, degrade_s=0.0, cancel_event=None):
-        time.sleep(0.3)  # deliberately ignores cancel: the stale result still arrives
-        return real_wf(cls, base, sat, mode, t_now, degrade_s, None)
+    # perf P1: the injection's trial horizon is the slow part (0.1 s per tick)
+    patch_slow_engine(monkeypatch, delay=0.1, after_inject=True)
 
     async def main():
         _, session = make_session(tmp_path)
         await session.start_live("a.json", None, 1.0)
         await session.pause()
-        monkeypatch.setattr("cubesat.session.LiveSource.with_failure", classmethod(slow_wf))
         inj = asyncio.create_task(session.inject_failure("SAT-1", "DEAD"))
         await asyncio.sleep(0.05)  # recompute in flight
         start_b = asyncio.create_task(session.start_live("b.json", None, 1.0))
@@ -121,11 +114,8 @@ def test_two_simultaneous_injects_both_apply(tmp_path):
 
 def test_inject_never_rewinds_sim_time(tmp_path, monkeypatch):
     write_scenario(tmp_path, "long.json", name="long", duration_s=2000.0)
-    real_wf = LiveSource.with_failure.__func__
-
-    def slow_wf(cls, *args, **kw):
-        time.sleep(0.3)  # the driver used to keep streaming meanwhile
-        return real_wf(cls, *args, **kw)
+    # perf P1: the inject's trial horizon is slow (~0.3 s), the run after it is not
+    patch_slow_engine(monkeypatch, delay=0.03, after_inject=True, slow_steps=10)
 
     async def main():
         hub, session = make_session(tmp_path)
@@ -142,7 +132,6 @@ def test_inject_never_rewinds_sim_time(tmp_path, monkeypatch):
         await session.start_live("long.json", None, 1000.0)  # 0.3 s = 300 sim-s
         while session.sim_time is None or session.sim_time < 200.0:
             await asyncio.sleep(0.01)
-        monkeypatch.setattr("cubesat.session.LiveSource.with_failure", classmethod(slow_wf))
         await session.inject_failure("SAT-2", "DEAD")
         assert session.sim_time < 1800.0, "inject must land mid-run"
         while not session.finished:

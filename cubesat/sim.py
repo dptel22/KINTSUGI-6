@@ -57,8 +57,10 @@ FIFO pops at most one event per tick) is fine and documented.
 
 from __future__ import annotations
 
+import bisect
 import math
 import threading
+from collections.abc import Iterator
 
 import numpy as np
 
@@ -67,7 +69,7 @@ from cubesat.coverage import coverage_fraction, footprint_radius, target_grid
 from cubesat.formations import formation_slots
 from cubesat.hcw import mean_motion, propagate
 from cubesat.pd import PDController, bang_bang_time_lower_bound
-from cubesat.scenario import FailureMode, Scenario
+from cubesat.scenario import Failure, FailureMode, Scenario
 
 LOG_SCHEMA_VERSION = 1
 
@@ -143,97 +145,171 @@ def build_slots(scenario: Scenario, n: float) -> list[np.ndarray]:
     )
 
 
-def run_scenario(
-    scenario: Scenario, cancel_event: threading.Event | None = None
-) -> list[dict]:
-    """Simulate the mission and return the JSONL lines: [INIT header, tick..., SUMMARY].
 
-    cancel_event is a cooperative-cancellation hook for the API layer's compute
-    timeout (cubesat/session.py): checked once between ticks, set -> RunCancelled
-    with no partial output. It is never set by any CLI/canonical caller, so the
-    check is a pure read that leaves every log byte-identical (AGENTS.md
-    invariant 2); no wall clock enters the sim itself (section 9.2)."""
-    if scenario.engine == "v2":  # v2 seam (cubesat/sim_v2.py)
-        from cubesat.sim_v2 import run_scenario_v2
-        return run_scenario_v2(scenario, cancel_event)
-    altitude_m = scenario.chief.altitude_km * 1000.0
-    n = mean_motion(altitude_m)
-    dt = scenario.dt_s
-    n_sats = scenario.n_sats
-    slots = build_slots(scenario, n)
-    states = [slot.copy() for slot in slots]
-    controllers = [
-        PDController(scenario.gains.wn, scenario.gains.zeta, scenario.a_max_mps2)
-        for _ in scenario.roles
-    ]
-    r_f = footprint_radius(altitude_m, math.radians(scenario.sensor.fov_half_angle_deg))
-    grid = target_grid(
-        scenario.sensor.grid_step_km * 1000.0, scenario.sensor.grid_extent_km * 1000.0
-    )
+class SimV1:
+    """Engine v1 as a stepper (perf P1): the body of the former run_scenario loop,
+    one tick per step(), state on the instance. Same surface as sim_v2.EngineV2:
+    header(), step(), inject(), run(), k / n_ticks / injections; run_scenario is
+    list(SimV1(scenario).run(cancel_event)), byte-identical to the old loop.
+    No snapshot method: copy.deepcopy(engine) is the snapshot (cubesat/live_stream.py
+    shares the read-only scenario/grid and the append-only coverage list)."""
 
-    # Mission bookkeeping. With no failures every default keeps this path
-    # byte-identical to the G3 nominal log (golden-hash regression guard).
-    formation = list(slots)  # current formation seat states (t = 0 convention)
-    seat_of = list(range(n_sats))  # sat i -> seat index in `formation`
-    roles = list(scenario.roles)
-    status = [STATUS_NOMINAL] * n_sats
-    missed = [0] * n_sats  # consecutive missed heartbeat ticks
-    t_fail = [0.0] * n_sats
-    fail_mode = [""] * n_sats
-    declared = [False] * n_sats
-    failures = sorted(scenario.failures, key=lambda f: (f.t, f.sat_id))
-    next_failure = 0
-    # EPS_DEGRADE fade transitions, scheduled at max(t_fail - degrade_s, 0) --
-    # the failure fires early as a DEGRADED status flip, in (fade time, sat_id)
-    # order. Only degrade_s > 0 enters this schedule, which is what keeps
-    # sudden failures (and every existing scenario) byte-identical.
-    degrades = sorted(
-        (
-            f
-            for f in scenario.failures
-            if f.mode == FailureMode.EPS_DEGRADE and f.degrade_s > 0
-        ),
-        key=lambda f: (max(f.t - f.degrade_s, 0.0), f.sat_id),
-    )
-    next_degrade = 0
-    mission = STATE_NOMINAL
-    events: list[dict] = []  # FIFO; at most one popped per tick line
-    replan_due = False
-    assigned = False
-    recover_tol = 0.0
-    oracle_warned = [False] * len(scenario.failures)
-    # Evasion episodes (Addendum v1.2): per-sat countdown and held acceleration.
-    # All-zero init keeps the default path byte-identical (see the evasion block).
-    evade_ticks_left = [0] * n_sats
-    u_evade = [np.zeros(3) for _ in range(n_sats)]
-    t_first_detect: float | None = None
+    def __init__(self, scenario: Scenario) -> None:
+        altitude_m = scenario.chief.altitude_km * 1000.0
+        self.scenario = scenario
+        self.n = n = mean_motion(altitude_m)
+        self.dt = dt = scenario.dt_s
+        self.n_sats = n_sats = scenario.n_sats
+        slots = build_slots(scenario, n)
+        self.states = [slot.copy() for slot in slots]
+        self.controllers = [
+            PDController(scenario.gains.wn, scenario.gains.zeta, scenario.a_max_mps2)
+            for _ in scenario.roles
+        ]
+        self.r_f = footprint_radius(altitude_m, math.radians(scenario.sensor.fov_half_angle_deg))
+        self.grid = target_grid(
+            scenario.sensor.grid_step_km * 1000.0, scenario.sensor.grid_extent_km * 1000.0
+        )
+        # Mission bookkeeping. With no failures every default keeps this path
+        # byte-identical to the G3 nominal log (golden-hash regression guard).
+        self.formation = list(slots)  # current formation seat states (t = 0 convention)
+        self.seat_of = list(range(n_sats))  # sat i -> seat index in `formation`
+        self.roles = list(scenario.roles)
+        self.status = [STATUS_NOMINAL] * n_sats
+        self.missed = [0] * n_sats  # consecutive missed heartbeat ticks
+        self.t_fail = [0.0] * n_sats
+        self.fail_mode = [""] * n_sats
+        self.declared = [False] * n_sats
+        self.failures = sorted(scenario.failures, key=_failure_key)
+        self.next_failure = 0
+        # EPS_DEGRADE fade transitions, scheduled at max(t_fail - degrade_s, 0) --
+        # the failure fires early as a DEGRADED status flip, in (fade time, sat_id)
+        # order. Only degrade_s > 0 enters this schedule, which is what keeps
+        # sudden failures (and every existing scenario) byte-identical.
+        self.degrades = sorted(
+            (
+                f
+                for f in scenario.failures
+                if f.mode == FailureMode.EPS_DEGRADE and f.degrade_s > 0
+            ),
+            key=_degrade_key,
+        )
+        self.next_degrade = 0
+        self.mission = STATE_NOMINAL
+        self.events: list[dict] = []  # FIFO; at most one popped per tick line
+        self.replan_due = False
+        self.assigned = False
+        self.recover_tol = 0.0
+        self.oracle_warned = [False] * len(scenario.failures)
+        # Evasion episodes (Addendum v1.2): per-sat countdown and held acceleration.
+        # All-zero init keeps the default path byte-identical (see the evasion block).
+        self.evade_ticks_left = [0] * n_sats
+        self.u_evade = [np.zeros(3) for _ in range(n_sats)]
+        self.t_first_detect: float | None = None
+        self.n_ticks = int(round(scenario.duration_s / dt)) + 1
+        self.cov: list[tuple[float, float]] = []
+        self.k = 0
+        self.injections: list[Failure] = []
 
-    n_ticks = int(round(scenario.duration_s / dt)) + 1
-    lines = [
-        {
+    def header(self) -> dict:
+        s = self.scenario
+        return {
             "v": LOG_SCHEMA_VERSION,
             "t": 0.0,
             "state": STATE_INIT,
-            "scenario": scenario.name,
-            "seed": scenario.seed,
-            "n_sats": scenario.n_sats,
+            "scenario": s.name,
+            "seed": s.seed,
+            "n_sats": s.n_sats,
         }
-    ]
-    coverage_by_tick: list[tuple[float, float]] = []
-    for k in range(n_ticks):
-        if cancel_event is not None and cancel_event.is_set():
-            raise RunCancelled(f"run cancelled before tick {k}")
+
+    def inject(self, failure: Failure) -> None:
+        """Schedule `failure` (t >= the current tick) exactly where a fresh run with
+        it in scenario.failures would hold it, so replaying the scenario with
+        `injections` appended reproduces the live log. Not reproduced: the
+        future-reading oracle / reassign_on_degrade `failing_soon` sets, which
+        cannot know an injection before it happens."""
+        if self.k >= self.n_ticks:
+            raise RuntimeError("run finished: cannot inject")
+        fades = failure.mode == FailureMode.EPS_DEGRADE and failure.degrade_s > 0
+        onset = _degrade_key(failure)[0] if fades else failure.t
+        if min(failure.t, onset) < self.k * self.dt - 1e-9:
+            raise ValueError("injection (or its EPS fade onset) lies before the current tick")
+        pos = bisect.bisect_right([_failure_key(f) for f in self.failures], _failure_key(failure))
+        self.failures.insert(pos, failure)
+        self.oracle_warned.insert(pos, False)
+        if fades:
+            keys = [_degrade_key(f) for f in self.degrades]
+            self.degrades.insert(bisect.bisect_right(keys, _degrade_key(failure)), failure)
+        failures = [*self.scenario.failures, failure]
+        self.scenario = self.scenario.model_copy(update={"failures": failures})
+        self.injections.append(failure)
+
+    def step(self) -> dict:
+        """Process tick k (fades, failures, heartbeats, log line), then the
+        between-step orchestration and the physics step (skipped on the last tick)."""
+        if self.k >= self.n_ticks:
+            raise RuntimeError("run finished")
+        k = self.k
+        (
+            scenario,
+            n,
+            dt,
+            n_sats,
+            states,
+            controllers,
+            r_f,
+            grid,
+            seat_of,
+            roles,
+            status,
+            missed,
+            t_fail,
+            fail_mode,
+            declared,
+            failures,
+            degrades,
+            events,
+            oracle_warned,
+            evade_ticks_left,
+            u_evade,
+            n_ticks,
+            coverage_by_tick,
+        ) = (
+            self.scenario,
+            self.n,
+            self.dt,
+            self.n_sats,
+            self.states,
+            self.controllers,
+            self.r_f,
+            self.grid,
+            self.seat_of,
+            self.roles,
+            self.status,
+            self.missed,
+            self.t_fail,
+            self.fail_mode,
+            self.declared,
+            self.failures,
+            self.degrades,
+            self.events,
+            self.oracle_warned,
+            self.evade_ticks_left,
+            self.u_evade,
+            self.n_ticks,
+            self.cov,
+        )
         t = k * dt
         # EPS_DEGRADE fades fire (before this tick's heartbeat), in scheduled
         # order: the sat turns DEGRADED (still reporting, still seat-holding)
         # and announces the upcoming death with one DEGRADE_START event. Only
         # reaches a sat that is still NOMINAL -- a sat that already failed in
         # another mode keeps that mode's semantics.
-        while next_degrade < len(degrades):
-            failure = degrades[next_degrade]
+        while self.next_degrade < len(degrades):
+            failure = degrades[self.next_degrade]
             if max(failure.t - failure.degrade_s, 0.0) > t + 1e-9:
                 break
-            next_degrade += 1
+            self.next_degrade += 1
             i = failure.sat_id
             if status[i] == STATUS_NOMINAL:
                 status[i] = STATUS_DEGRADED
@@ -260,7 +336,7 @@ def run_scenario(
                     scenario.reassign_on_degrade
                     and scenario.recovery_enabled
                     and roles[i] in _CRITICAL_ROLES
-                    and mission in (STATE_NOMINAL, STATE_RECOVERED)
+                    and self.mission in (STATE_NOMINAL, STATE_RECOVERED)
                 ):
                     failing_soon = {
                         f.sat_id for f in scenario.failures if f.t > t + 1e-9
@@ -278,9 +354,9 @@ def run_scenario(
                     if event is not None:
                         events.append(event)
         # Failures fire (before this tick's heartbeat), in scheduled order.
-        while next_failure < len(failures) and failures[next_failure].t <= t + 1e-9:
-            failure = failures[next_failure]
-            next_failure += 1
+        while self.next_failure < len(failures) and failures[self.next_failure].t <= t + 1e-9:
+            failure = failures[self.next_failure]
+            self.next_failure += 1
             i = failure.sat_id
             if status[i] != STATUS_DEAD:
                 status[i] = (
@@ -300,9 +376,9 @@ def run_scenario(
                     # -> re-election -> RECONFIGURING -> RECOVERED arc then
                     # runs unchanged (non-NOMINAL sats are already excluded
                     # from assignable and seat_roles_for re-elects the role).
-                    mission = STATE_FAILURE_DETECTED
-                    if t_first_detect is None:
-                        t_first_detect = t
+                    self.mission = STATE_FAILURE_DETECTED
+                    if self.t_first_detect is None:
+                        self.t_first_detect = t
                     events.append(
                         {
                             "type": "FAILURE_DETECTED",
@@ -329,9 +405,9 @@ def run_scenario(
                 and missed[i] >= scenario.detection.missed_ticks_k
             ):
                 declared[i] = True
-                mission = STATE_FAILURE_DETECTED
-                if t_first_detect is None:
-                    t_first_detect = t
+                self.mission = STATE_FAILURE_DETECTED
+                if self.t_first_detect is None:
+                    self.t_first_detect = t
                 events.append(
                     {
                         "type": "FAILURE_DETECTED",
@@ -365,7 +441,7 @@ def run_scenario(
         line = {
             "v": LOG_SCHEMA_VERSION,
             "t": t,
-            "state": mission,
+            "state": self.mission,
             "sats": [
                 {
                     "id": i,
@@ -382,18 +458,18 @@ def run_scenario(
         }
         if events:
             line["event"] = events.pop(0)
-        lines.append(line)
         coverage_by_tick.append((t, coverage))
+        self.k = k + 1
         if k == n_ticks - 1:
-            break
+            return line
 
         # Oracle value-of-warning hook (Phase 2): gated default-off; inert when disabled
         if (
             scenario.oracle.enabled
             and scenario.recovery_enabled
             and scenario.oracle.lead_s > 0
-            and not replan_due
-            and mission in (STATE_NOMINAL, STATE_RECOVERED)
+            and not self.replan_due
+            and self.mission in (STATE_NOMINAL, STATE_RECOVERED)
         ):
             lead = scenario.oracle.lead_s
             for f_idx, f in enumerate(failures):
@@ -401,8 +477,8 @@ def run_scenario(
                     t_warn = max(f.t - lead, 0.0)
                     if t_warn <= t:
                         oracle_warned[f_idx] = True
-                        mission = STATE_REPLANNING
-                        replan_due = True
+                        self.mission = STATE_REPLANNING
+                        self.replan_due = True
                         events.append(
                             {
                                 "type": "ORACLE_ALERT",
@@ -422,27 +498,27 @@ def run_scenario(
         # tick in the log; RECONFIGURING spans the physical transfers until every
         # survivor settles within tolerance, and RECOVERED holds to the end.
         if (
-            mission == STATE_FAILURE_DETECTED
+            self.mission == STATE_FAILURE_DETECTED
             and scenario.recovery_enabled
             and any(s == STATUS_NOMINAL for s in status)
             and (
-                t_first_detect is not None
-                and t >= t_first_detect + scenario.recovery_delay_s - 1e-9
+                self.t_first_detect is not None
+                and t >= self.t_first_detect + scenario.recovery_delay_s - 1e-9
             )
         ):
-            mission = STATE_REPLANNING
+            self.mission = STATE_REPLANNING
             events.append(
                 {
                     "type": "STATE",
                     "payload": {"from": STATE_FAILURE_DETECTED, "to": STATE_REPLANNING},
                 }
             )
-            replan_due = True
-            t_first_detect = None
-        elif replan_due and mission == STATE_REPLANNING:
+            self.replan_due = True
+            self.t_first_detect = None
+        elif self.replan_due and self.mission == STATE_REPLANNING:
             assignable = [i for i in range(n_sats) if status[i] == STATUS_NOMINAL]
             obstacles = [states[i] for i in range(n_sats) if status[i] != STATUS_NOMINAL]
-            current_slots = [formation[seat_of[i]] for i in assignable]
+            current_slots = [self.formation[seat_of[i]] for i in assignable]
             plan, pairs, cost_total, method, max_transfer, _cost = replan(
                 [states[i] for i in assignable],
                 [roles[i] for i in assignable],
@@ -487,9 +563,9 @@ def run_scenario(
                 preserved: list[np.ndarray] = []
                 for i in range(n_sats):
                     if status[i] == STATUS_DEGRADED:
-                        preserved.append(formation[seat_of[i]])
+                        preserved.append(self.formation[seat_of[i]])
                         seat_of[i] = len(plan.slots) + len(preserved) - 1
-                formation = list(plan.slots) + preserved
+                self.formation = list(plan.slots) + preserved
                 for row, col in pairs:
                     sat_id = assignable[row]
                     seat_of[sat_id] = col
@@ -517,10 +593,10 @@ def run_scenario(
                         )
                         if event is not None:
                             events.append(event)
-            recover_tol = max(_RECOVER_TOL_FRAC * max_transfer, 1.0)
-            assigned = True
-            replan_due = False
-            mission = STATE_RECONFIGURING
+            self.recover_tol = max(_RECOVER_TOL_FRAC * max_transfer, 1.0)
+            self.assigned = True
+            self.replan_due = False
+            self.mission = STATE_RECONFIGURING
             events.append(
                 {
                     "type": "ASSIGNMENT",
@@ -547,17 +623,17 @@ def run_scenario(
                     },
                 }
             )
-        elif assigned and mission == STATE_RECONFIGURING:
+        elif self.assigned and self.mission == STATE_RECONFIGURING:
             settled = all(
                 float(
-                    np.linalg.norm(states[i][:3] - propagate(formation[seat_of[i]], t, n)[:3])
+                    np.linalg.norm(states[i][:3] - propagate(self.formation[seat_of[i]], t, n)[:3])
                 )
-                <= recover_tol
+                <= self.recover_tol
                 for i in range(n_sats)
                 if status[i] in (STATUS_NOMINAL, STATUS_DEGRADED)
             )
             if settled:
-                mission = STATE_RECOVERED
+                self.mission = STATE_RECOVERED
                 events.append(
                     {
                         "type": "STATE",
@@ -625,20 +701,50 @@ def run_scenario(
                     )
                     evade_ticks_left[i] -= 1
                 else:
-                    ref = propagate(formation[seat_of[i]], t, n)
+                    ref = propagate(self.formation[seat_of[i]], t, n)
                     states[i], _ = controllers[i].step(states[i], ref[:3], ref[3:], dt, n)
             else:
                 states[i] = propagate(states[i], dt, n)
+        return line
 
-    # Time-averaged coverage over the last orbit (MASTER_PROMPT 3.4).
-    window_start = scenario.duration_s - 2.0 * math.pi / n
-    tail = [c for (tick_t, c) in coverage_by_tick if tick_t >= window_start - 1e-9]
-    lines.append(
-        {
+    def run(self, cancel_event: threading.Event | None = None) -> Iterator[dict]:
+        """Yield [header (k == 0 only), ticks..., SUMMARY]; RunCancelled between ticks."""
+        if self.k == 0:
+            yield self.header()
+        while self.k < self.n_ticks:
+            if cancel_event is not None and cancel_event.is_set():
+                raise RunCancelled(f"run cancelled before tick {self.k}")
+            yield self.step()
+        # Time-averaged coverage over the last orbit (MASTER_PROMPT 3.4).
+        window_start = self.scenario.duration_s - 2.0 * math.pi / self.n
+        tail = [c for (tick_t, c) in self.cov if tick_t >= window_start - 1e-9]
+        yield {
             "v": LOG_SCHEMA_VERSION,
-            "t": coverage_by_tick[-1][0],
+            "t": self.cov[-1][0],
             "state": STATE_SUMMARY,
             "coverage_mean_last_orbit": sum(tail) / len(tail),
         }
-    )
-    return lines
+
+
+def _failure_key(f: Failure) -> tuple[float, int]:
+    return (f.t, f.sat_id)
+
+
+def _degrade_key(f: Failure) -> tuple[float, int]:
+    return (max(f.t - f.degrade_s, 0.0), f.sat_id)
+
+
+def run_scenario(
+    scenario: Scenario, cancel_event: threading.Event | None = None
+) -> list[dict]:
+    """Simulate the mission and return the JSONL lines: [INIT header, tick..., SUMMARY].
+
+    cancel_event is a cooperative-cancellation hook for the API layer's compute
+    timeout (cubesat/session.py): checked once between ticks, set -> RunCancelled
+    with no partial output. It is never set by any CLI/canonical caller, so the
+    check is a pure read that leaves every log byte-identical (AGENTS.md
+    invariant 2); no wall clock enters the sim itself (section 9.2)."""
+    if scenario.engine == "v2":  # v2 seam (cubesat/sim_v2.py)
+        from cubesat.sim_v2 import run_scenario_v2
+        return run_scenario_v2(scenario, cancel_event)
+    return list(SimV1(scenario).run(cancel_event))

@@ -73,8 +73,9 @@ class InjectRequest(BaseModel):
         "PAYLOAD_FAIL", "PARTIAL_THRUST", "THRUSTER_STUCK_OPEN", "RADIO_FAIL",
     ] = "DEAD"
     degrade_s: float = Field(
-        default=600.0, ge=0, allow_inf_nan=False,
-        description="EPS_DEGRADE fade length, s (ignored otherwise)",
+        default=600.0, ge=0, le=86400.0, allow_inf_nan=False,
+        description="EPS_DEGRADE fade length, s (ignored otherwise; at most one day here, "
+        "and at most the run duration in the session)",
     )
 
 

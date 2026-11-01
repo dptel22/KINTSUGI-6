@@ -1,53 +1,49 @@
 """Abandoned compute threads are cancelled (audit B-5): reset, a superseded
 start, a replaced inject, a client abort and shutdown all set the cancel Event
-of the in-flight run_scenario thread."""
+of the in-flight compute (since perf P1: the streaming producer)."""
 
 from __future__ import annotations
 
 import asyncio
-import threading
 import time
 
 import pytest
-from conftest import make_session, write_scenario
+from conftest import make_session, patch_slow_engine, producer_threads, write_scenario
 
 from cubesat.session import SessionError
-from cubesat.sim import RunCancelled
 
 # ---- item 2: cancel abandoned work ----------------------------------------
+# Perf P1: the compute seam is the streaming producer (cubesat/live_stream.py),
+# so the blocker is a SlowEngine at make_engine instead of a patched run_scenario
+# / LiveSource.with_failure; the pinned behaviour (no orphan thread, 409) is the same.
 
 
-def _blocking_run(started: threading.Event, seen: list, exited: threading.Event):
-    def run(scenario, cancel_event=None):
-        seen.append(cancel_event)
-        started.set()
-        try:
-            if cancel_event.wait(5.0):
-                raise RunCancelled("cancelled")
-            raise AssertionError("cancel event never set: orphan thread")
-        finally:
-            exited.set()
+def _no_producer_within(seconds: float) -> bool:
+    deadline = time.monotonic() + seconds
+    while producer_threads():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.01)
+    return True
 
-    return run
+
+async def _until_producing():
+    while not producer_threads():
+        await asyncio.sleep(0.01)
 
 
 def test_reset_cancels_in_flight_start(tmp_path, monkeypatch):
     write_scenario(tmp_path, "a.json", name="a")
-    started, exited, seen = threading.Event(), threading.Event(), []
-    monkeypatch.setattr(
-        "cubesat.session.run_scenario", _blocking_run(started, seen, exited)
-    )
+    patch_slow_engine(monkeypatch, delay=0.2)  # a full lookahead takes ~3 s
 
     async def main():
         _, session = make_session(tmp_path)
         start = asyncio.create_task(session.start_live("a.json", None, 1.0))
-        while not started.is_set():
-            await asyncio.sleep(0.01)
+        await _until_producing()
         t0 = time.monotonic()
         await session.reset()
         assert time.monotonic() - t0 < 2.0
-        assert seen[0].is_set()
-        assert exited.wait(2.0), "compute thread still running after reset"
+        assert _no_producer_within(2.0), "producer still running after reset"
         with pytest.raises(SessionError) as exc:
             await start
         assert exc.value.status_code == 409
@@ -58,31 +54,23 @@ def test_reset_cancels_in_flight_start(tmp_path, monkeypatch):
 
 def test_shutdown_and_abort_cancel_in_flight_start(tmp_path, monkeypatch):
     write_scenario(tmp_path, "a.json", name="a")
-    started, exited, seen = threading.Event(), threading.Event(), []
-    monkeypatch.setattr(
-        "cubesat.session.run_scenario", _blocking_run(started, seen, exited)
-    )
+    patch_slow_engine(monkeypatch, delay=0.2)
 
     async def main():
         _, session = make_session(tmp_path)
         start = asyncio.create_task(session.start_live("a.json", None, 1.0))
-        while not started.is_set():
-            await asyncio.sleep(0.01)
+        await _until_producing()
         session.shutdown()
-        assert seen[0].is_set()
-        assert exited.wait(2.0)
+        assert _no_producer_within(2.0)
         with pytest.raises(SessionError):
             await start
-        # client abort (task cancelled) also stops the thread
-        started.clear(), exited.clear(), seen.clear()
+        # client abort (task cancelled) also stops the producer
         start = asyncio.create_task(session.start_live("a.json", None, 1.0))
-        while not started.is_set():
-            await asyncio.sleep(0.01)
+        await _until_producing()
         start.cancel()
         with pytest.raises(asyncio.CancelledError):
             await start
-        assert seen[0].is_set()
-        assert exited.wait(2.0)
+        assert _no_producer_within(2.0)
         assert session.mode == "stopped"  # no zombie "live" session without a source
 
     asyncio.run(main())
@@ -90,29 +78,19 @@ def test_shutdown_and_abort_cancel_in_flight_start(tmp_path, monkeypatch):
 
 def test_replaced_inject_is_cancelled(tmp_path, monkeypatch):
     write_scenario(tmp_path, "a.json", name="a")
-    seen, started, exited = [], threading.Event(), threading.Event()
-
-    def blocking_wf(cls, base, sat, mode, t_now, degrade_s=0.0, cancel_event=None):
-        seen.append(cancel_event)
-        started.set()
-        try:
-            if cancel_event.wait(5.0):
-                raise RunCancelled("cancelled")
-        finally:
-            exited.set()
+    patch_slow_engine(monkeypatch, delay=0.2, after_inject=True)
 
     async def main():
         _, session = make_session(tmp_path)
         await session.start_live("a.json", None, 1.0)
         await session.pause()
-        monkeypatch.setattr("cubesat.session.LiveSource.with_failure", classmethod(blocking_wf))
         inj = asyncio.create_task(session.inject_failure("SAT-1", "DEAD"))
-        while not started.is_set():
-            await asyncio.sleep(0.01)
+        await asyncio.sleep(0.1)  # the trial horizon is stepping, 0.2 s per tick
+        assert not inj.done()
         t0 = time.monotonic()
         await session.reset()
-        assert time.monotonic() - t0 < 2.0  # not parked behind the 5 s blocker
-        assert seen[0].is_set() and exited.wait(2.0)
+        assert time.monotonic() - t0 < 2.0  # not parked behind the slow horizon
+        assert _no_producer_within(2.0)
         with pytest.raises(SessionError) as exc:
             await inj
         assert exc.value.status_code == 409

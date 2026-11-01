@@ -12,17 +12,16 @@ from __future__ import annotations
 import asyncio
 import threading
 from bisect import bisect_right
-from functools import cached_property
 from pathlib import Path
 from typing import Literal
 
 import cubesat.sim as sim_module
-from cubesat import geo_v2
 from cubesat.allocate import InfeasibleFormation
 from cubesat.benchmark_policies import even_split_replan, hungarian_keepout_replan
+from cubesat.live_stream import LiveStream, resolve
 from cubesat.replay import ReplayLog, index_at, load_jsonl
 from cubesat.scenario import V2_ONLY_MODES, Failure, FailureMode, Scenario, load_scenario
-from cubesat.sim import RunCancelled, run_scenario
+from cubesat.sim import RunCancelled
 from cubesat.wire import POLICY_VALUES, SessionEnrich, to_event, to_messages, to_sim_state
 
 
@@ -87,69 +86,8 @@ class Hub:
                 q.put_nowait(m)
 
 
-class LiveSource:
-    """run_scenario output as a cursor-able frame source (section 4)."""
-
-    def __init__(self, scenario: Scenario, lines: list[dict]) -> None:
-        self.scenario = scenario
-        self.header = lines[0] if lines and lines[0].get("state") == "INIT" else None
-        self.summary = next((line for line in lines if line.get("state") == "SUMMARY"), None)
-        self.frames = [line for line in lines if line.get("state") not in ("INIT", "SUMMARY")]
-        self.times = [float(frame["t"]) for frame in self.frames]
-        self.skipped = 0
-
-    @cached_property
-    def earth_view(self) -> dict:
-        """Run-constant v2 hello keys (ring, ground track, sun); {} for engine v1."""
-        return geo_v2.hello_fields(self.scenario) if self.scenario.engine == "v2" else {}
-
-    @property
-    def scenario_name(self) -> str | None:
-        return self.scenario.name
-
-    @property
-    def seed(self) -> int | None:
-        return self.scenario.seed
-
-    @classmethod
-    def with_failure(
-        cls, base: Scenario, sat_display_id: str, mode: str, t_now: float,
-        degrade_s: float = 0.0, cancel_event: threading.Event | None = None,
-    ) -> LiveSource:
-        """Failure injection = recompute (section 4, consequence 2): the only
-        change is one failure scheduled at t_now, so for DEAD and THRUSTER_OUT
-        injections the recomputed prefix is byte-identical (pinned by
-        test_inject_prefix_byte_identical).
-        degrade_s only matters for EPS_DEGRADE (Addendum v1.2): the injected sat
-        then fades to DEGRADED over degrade_s before dying at t_now. With
-        degrade_s > 0 the fade fires at max(t_now - degrade_s, 0) -- inside the
-        prefix -- so that recomputed prefix carries DEGRADED status and a
-        DEGRADE_START event instead of matching byte for byte (self-consistent
-        recompute, same run_scenario output either way).
-        cancel_event passes through to run_scenario (compute-timeout
-        cooperative cancellation, same contract as start_live)."""
-        idx = _parse_sat_id(sat_display_id)
-        t_fail = t_now
-        if base.engine == "v2" and mode not in ("DEAD", "EPS_DEGRADE"):
-            # v2: the sat reports these itself on the failing tick (the line at t_now already
-            # streamed), so schedule the failure on the NEXT tick, exactly where the engine's own
-            # live inject() resolves it; its event then lands in the first frame after t_now
-            t_fail = t_now + base.dt_s
-        failures = sorted(
-            list(base.failures)
-            + [
-                Failure(
-                    t=t_fail, sat_id=idx, mode=FailureMode(mode), degrade_s=degrade_s
-                )
-            ],
-            key=lambda f: (f.t, f.sat_id),
-        )
-        augmented = base.model_copy(update={"failures": failures})
-        return cls(augmented, run_scenario(augmented, cancel_event))
-
-
 class ReplaySource:
-    """A committed JSONL log as a frame source -- same surface as LiveSource."""
+    """A committed JSONL log as a frame source -- same surface as live_stream.LiveStream."""
 
     def __init__(self, log: ReplayLog) -> None:
         self.log = log
@@ -166,6 +104,13 @@ class ReplaySource:
     @property
     def seed(self) -> int | None:
         return self.log.header.get("seed") if self.log.header else None
+
+
+def _inject_horizon(scenario: Scenario, failure: Failure, k_first: int) -> int:
+    """Ticks an injection steps before it commits, from k_first: through the death
+    (an EPS fade first), the K missed heartbeats, the recovery delay and the replan."""
+    t_replan = failure.t + scenario.recovery_delay_s
+    return round(t_replan / scenario.dt_s) - k_first + scenario.detection.missed_ticks_k + 4
 
 
 def _parse_sat_id(sat_display_id: str) -> int:
@@ -201,14 +146,15 @@ class Session:
         self.speed = 100.0
         self.finished = False
         self.enrich = SessionEnrich()
-        self._source: LiveSource | ReplaySource | None = None
+        self._source: LiveStream | ReplaySource | None = None
         self._cursor = 0  # frame cursor into source.frames
         self._driver: asyncio.Task | None = None
         self._snapshot = to_sim_state({"state": "INIT", "t": 0.0}, self.enrich)
         self._last_frame_t: float | None = None
         self._anchor_t = 0.0
         self._anchor_wall = 0.0
-        self._last_emit_wall: float | None = None
+        self._last_emit_t: float | None = None  # sim time of the last emitted state
+        self._last_emit_wall = 0.0
         self._seam_original = None  # cubesat.sim.replan before the policy seam rebind
         # Mutation serialization (audit B-1/B-2/B-3). start/replay/inject/reset hold
         # _mutex for their whole duration. _epoch identifies the current RUN: start,
@@ -359,41 +305,39 @@ class Session:
             self._prepare(
                 SessionEnrich(scenario=scenario.name, seed=scenario.seed, policy=policy)
             )
-            # Cooperative cancellation for the timeout below: wait_for cancels only
-            # the await -- without the event the run_scenario thread would keep
-            # running to completion as an orphan, pinning CPU in the shared server
-            # process (audit, medium). The event is set on timeout and the thread
-            # exits at its next tick (sim.run_scenario contract, zero effect on any
-            # canonical run).
-            cancel = self._cancel = threading.Event()
+            # Streaming (perf P1, audit F1): a producer thread steps the engine a
+            # bounded lookahead ahead of playback; start waits for frame 0 only.
+            # _cancel duck-types a threading.Event: supersede/teardown stop the
+            # producer before its next tick (no orphan CPU, B-5).
             try:
-                lines = await asyncio.wait_for(
-                    asyncio.to_thread(run_scenario, scenario, cancel), self.run_timeout_s
+                stream = self._cancel = LiveStream(scenario).start()
+                # wait for a FULL lookahead (or the whole run if shorter): one tick costs
+                # 0.03-1.1 ms, and a run shorter than the buffer then plays exactly as
+                # the old precompute did (fully broadcast before start returns)
+                ready = await asyncio.to_thread(
+                    stream.wait_frame, stream.lookahead - 1, self.run_timeout_s
                 )
-            except TimeoutError:
-                cancel.set()  # the abandoned thread stops at its next tick
-                self._teardown()  # also closes the policy seam
-                self._announce_stopped()
-                raise SessionError(504, "scenario computation timed out") from None
-            except RunCancelled:
-                self._restore_seam()
-                raise SessionError(409, "superseded by a newer start, load or reset") from None
-            except InfeasibleFormation as exc:  # F3: a scenario fact, not a server fault
-                self._restore_seam()
-                if epoch == self._epoch:  # a superseding start/reset owns the session
-                    self._teardown()
-                    self._announce_stopped()
-                raise SessionError(409, f"{exc} (scenario cannot recover)") from None
             except BaseException:
-                # Never leak the process-global replan seam on a failed start
-                # (the abandoned thread's output is discarded either way).
-                cancel.set()  # client abort / any failure: stop the thread
+                # Never leak the process-global replan seam on a failed start.
+                self._cancel_compute()
                 self._restore_seam()
                 if epoch == self._epoch:
                     self._teardown()  # no zombie "live" session without a source
                 raise
-            self._check_epoch(epoch)  # a newer start/reset arrived during the compute
-            self._source = LiveSource(scenario, lines)
+            if epoch != self._epoch:  # a newer start/reset arrived meanwhile
+                stream.stop()
+                self._restore_seam()
+                raise SessionError(409, "superseded by a newer start, load or reset")
+            if not ready or stream.error is not None:  # nothing streamed yet: fail loud
+                stream.stop()
+                self._teardown()  # also closes the policy seam
+                self._announce_stopped()
+                if not ready:
+                    raise SessionError(504, "scenario computation timed out")
+                if isinstance(stream.error, InfeasibleFormation):  # F3: a scenario fact
+                    raise SessionError(409, f"{stream.error} (scenario cannot recover)")
+                raise stream.error
+            self._source = stream
             self._set_risk(risk)  # DISPLAY-only overlay, scored above
             await self._spawn_driver()
 
@@ -490,17 +434,19 @@ class Session:
         Injects are serialized: a second one waits and recomputes on top of the
         first. Playback is HELD for the recompute (no frames stream from the
         pre-injection source), so the cursor never moves backwards (B-3). The
-        recompute (LiveSource.with_failure -> run_scenario) replans under the
-        session's active policy: the replan seam opened in _prepare is still
-        installed across the live lifetime. degrade_s is the EPS_DEGRADE fade
-        length (Addendum v1.2); other modes ignore it."""
+        injection (LiveStream.inject) replans under the session's active policy:
+        the replan seam opened in _prepare is still installed across the live
+        lifetime. degrade_s is the EPS_DEGRADE fade length (Addendum v1.2), at
+        most the run duration (422); other modes ignore it."""
         epoch = self._epoch
         async with self._mutex():
             self._check_epoch(epoch)
             if self.mode != "live":
                 raise SessionError(409, "failure injection requires a live run")
             source = self._source
-            if source is None or self.finished or self._cursor >= len(source.frames):
+            if source is None or self.finished or (
+                self._cursor >= len(source.frames) and getattr(source, "done", True)
+            ):
                 raise SessionError(409, "run finished")
             idx = _parse_sat_id(sat_display_id)
             if idx >= source.scenario.n_sats:
@@ -513,6 +459,11 @@ class Session:
                     f'failure mode {mode} requires engine "v2"; '
                     f'the running scenario uses engine "{engine}"',
                 )
+            if mode == "EPS_DEGRADE" and degrade_s > source.scenario.duration_s:  # horizon
+                raise SessionError(
+                    422, f"degrade_s {degrade_s:g} exceeds the run duration "
+                    f"{source.scenario.duration_s:g} s",
+                )
             if engine == "v2":
                 self._check_v2_sat_alive(source, idx, sat_display_id, t_now)
             elif any(f.sat_id == idx for f in source.scenario.failures):
@@ -524,36 +475,39 @@ class Session:
                     f"{sat_display_id} {mode} failure injected; recomputing trajectory...",
                 )
             )
-            cancel = self._cancel = threading.Event()  # same guard as start_live
-            applied = False
+            # Streaming inject (perf P1, audit F2): fork the snapshot of the tick the
+            # failure first acts on, step a fixed horizon past its replan (so an
+            # infeasible replan is a 409 BEFORE anything is committed), drop the
+            # buffered frames after t_now. Cost is independent of t_now.
+            failure, k_first = resolve(source.scenario, idx, mode, t_now, degrade_s)
+            applied, cancel = False, threading.Event()
             try:
-                new_source = await asyncio.wait_for(
+                await asyncio.wait_for(
                     asyncio.to_thread(
-                        LiveSource.with_failure, source.scenario, sat_display_id,
-                        mode, t_now, degrade_s, cancel,
+                        source.inject, failure, k_first,
+                        _inject_horizon(source.scenario, failure, k_first), cancel,
                     ),
                     self.run_timeout_s,
                 )
-                self._check_epoch(epoch)  # stale recompute: its run was replaced
+                self._check_epoch(epoch)  # its run was replaced meanwhile
                 applied = True
             except TimeoutError:
-                cancel.set()  # the abandoned recompute thread stops at its next tick
+                cancel.set()  # the worker aborts before committing (no late inject)
                 raise SessionError(504, "failure recomputation timed out") from None
-            except RunCancelled:
-                raise SessionError(409, "superseded by a newer start, load or reset") from None
             except InfeasibleFormation as exc:  # F3: the old run plays on (finally)
                 raise SessionError(409, f"{exc} (injection not applied)") from None
-            except BaseException:
-                cancel.set()
-                raise
+            except RunCancelled:  # reset / a newer start stopped the stream meanwhile
+                raise SessionError(409, "superseded by a newer start, load or reset") from None
+            except RuntimeError as exc:  # the producer reached the end meanwhile
+                if not str(exc).startswith("run finished"):
+                    raise
+                raise SessionError(409, "run finished") from None
             finally:
                 if not applied and epoch == self._epoch and not self.paused:
                     self._start_driver()  # failed inject: the old run plays on
-            self._source = new_source
-            # frames up to t_now already streamed and are byte-identical: resume
-            # strictly AFTER t_now (bisect_right); the driver was held, so this is
-            # exactly where the cursor already stood
-            self._cursor = min(bisect_right(new_source.times, t_now), len(new_source.times))
+            # frames up to t_now already streamed: resume strictly AFTER t_now
+            # (bisect_right); the driver was held, so the cursor already stood there
+            self._cursor = min(bisect_right(source.times, t_now), len(source.times))
             self.finished = False
             if not self.paused:
                 await self._spawn_driver()
@@ -561,7 +515,7 @@ class Session:
     # ---- internals ---------------------------------------------------------
 
     def _check_v2_sat_alive(
-        self, source: LiveSource, idx: int, sat_display_id: str, t_now: float
+        self, source: LiveStream, idx: int, sat_display_id: str, t_now: float
     ) -> None:
         """v2 allows a further failure on a sat that only lost a resource (camera, radio, thrust);
         a dead sat (scheduled or already streamed) and a re-entered sat cannot fail any further."""
@@ -692,7 +646,7 @@ class Session:
         self.finished = False
         self._cursor = 0
         self._last_frame_t = None
-        self._last_emit_wall = None
+        self._last_emit_t = None
         self._snapshot = to_sim_state({"state": "INIT", "t": 0.0}, self.enrich)
         self._install_seam()
 
@@ -703,10 +657,10 @@ class Session:
         self.mode = "stopped"
         self.paused = False
         self.finished = False
-        self._source = None
+        self._source = None  # its producer was stopped by _cancel_compute above
         self._cursor = 0
         self._last_frame_t = None
-        self._last_emit_wall = None
+        self._last_emit_t = None
         self._risk_by_t = None  # display-only risk map never outlives its run
         self._risk_times = []
         self.enrich = SessionEnrich()
@@ -734,7 +688,7 @@ class Session:
         # instead of racing the portal shutdown.
         await asyncio.sleep(0)
 
-    def _re_anchor(self, loop: asyncio.AbstractEventLoop) -> None:
+    def _re_anchor(self, loop: asyncio.AbstractEventLoop, reset_emit: bool = True) -> None:
         source = self._source
         times = source.times if source else []
         if self._cursor < len(times):
@@ -744,6 +698,8 @@ class Session:
         else:
             self._anchor_t = 0.0
         self._anchor_wall = loop.time()
+        if reset_emit:  # first frame after (re)start/seek/speed always goes out
+            self._last_emit_t = None
 
     def _emit(self, msg: dict) -> None:
         self.hub.publish(msg)
@@ -751,8 +707,11 @@ class Session:
             self._snapshot = msg
 
     def _advance(self, i: int, loop: asyncio.AbstractEventLoop) -> None:
-        """Pure/sync frame building for frame i (section 14.3); wall-clock only
-        for the emit-cadence decision, never in content (section 9.2)."""
+        """Pure/sync frame building for frame i (section 14.3). The emit cadence is a
+        SIM-time stride, speed x min_emit_interval (audit F10: a wall-clock interval
+        alone, against frames exactly 1/30 s apart at speed 60, dropped every other
+        one under jitter), or the wall interval when the stride is too long for the
+        producer to keep up; no wall clock enters content (section 9.2)."""
         frame = self._source.frames[i]
         # DISPLAY-ONLY predictor seam (the one injection site). _frame_with_risk
         # attaches sats[].risk to a THROWAWAY COPY of the frame so the UI can
@@ -763,16 +722,20 @@ class Session:
         # with the predictor off the wire bytes are identical to today's.
         msgs = to_messages(self._frame_with_risk(frame), self.enrich)
         carries_event = any(m.get("type") in ("event", "role_reassignment") for m in msgs)
-        now = loop.time()
+        t, now = frame["t"], loop.time()
         due = (
             self.min_emit_interval <= 0
-            or self._last_emit_wall is None
+            or self._last_emit_t is None
+            or t - self._last_emit_t >= self.speed * self.min_emit_interval - 1e-9
+            # ...or the wall interval, for when the producer, not the pacing, is
+            # the bottleneck (a max-speed burst would otherwise show no frames)
             or now - self._last_emit_wall >= self.min_emit_interval
         )
-        if due or carries_event or i + 1 >= len(self._source.frames):
+        last = i + 1 >= len(self._source.frames) and getattr(self._source, "done", True)
+        if due or carries_event or last:
             for msg in msgs:  # always emit event lines immediately (section 10)
                 self._emit(msg)
-            self._last_emit_wall = now
+            self._last_emit_t, self._last_emit_wall = t, now
         else:
             for msg in msgs:  # decimated: late joiners still get the freshest state
                 if msg.get("type") == "sim_state":
@@ -788,9 +751,17 @@ class Session:
         except Exception as exc:  # noqa: BLE001 -- the point is never-silent
             self.finished = True
             t = self._last_frame_t if self._last_frame_t is not None else 0.0
-            self.hub.publish(
-                to_event("critical", t, f"stream stopped: {type(exc).__name__}: {exc}")
-            )
+            text = f"stream stopped: {type(exc).__name__}: {exc}"
+            if isinstance(exc, InfeasibleFormation):
+                # a SCENARIO failure past the first lookahead whose replan has no
+                # feasible formation (start only sees the first lookahead): the
+                # run cannot go on, so it ends loudly and the session stops
+                self.hub.publish(to_event("critical", t, f"{text} (scenario cannot recover)"))
+                self._driver = None  # this task: teardown must not cancel itself
+                self._teardown()
+                self._announce_stopped()
+                return
+            self.hub.publish(to_event("critical", t, text))
 
     async def _drive_steps(self) -> None:
         loop = asyncio.get_running_loop()
@@ -802,17 +773,35 @@ class Session:
                 self._emit(msg)
         self._re_anchor(loop)
         frames, times = source.frames, source.times
-        while self._cursor < len(frames):
+        stream = source if isinstance(source, LiveStream) else None
+        while True:
             if self.paused:
                 return
+            if self._cursor >= len(frames):
+                if stream is None or stream.done:
+                    break
+                # ponytail: 2 ms poll while the producer catches up (a replan
+                # spike past the lookahead); an asyncio wakeup if it ever shows
+                await asyncio.sleep(0.002)
+                # starved: resume pacing from here (no burst); the emit cap holds
+                self._re_anchor(loop, reset_emit=False)
+                continue
             i = self._cursor
             delay = (self._anchor_wall + (times[i] - self._anchor_t) / self.speed) - loop.time()
             if delay > 0:
                 await asyncio.sleep(delay)
                 if self.paused:
                     return
+            elif i % 64 == 63:  # audit F12: a max-speed burst still yields to the loop
+                await asyncio.sleep(0)
+                if self.paused:
+                    return
             self._advance(i, loop)
             self._cursor = i + 1
+            if stream is not None:
+                stream.consume(self._cursor)
+        if stream is not None and stream.error is not None:
+            raise stream.error  # _drive turns it into a critical event (never silent)
         if source.summary is not None:
             for msg in to_messages(source.summary, self.enrich):
                 self._emit(msg)

@@ -1,0 +1,3047 @@
+{
+  "schema": "perf_baseline/1",
+  "command": "uv run python -m cubesat.benchmark --mode perf --base data/scenarios --report data/eval/perf_after_p1.json --repeats 3",
+  "date_utc": "2026-10-31T23:43:34.195498+00:00",
+  "repeats": 3,
+  "machine": {
+    "platform": "macOS-26.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "cpu": "Apple M3",
+    "cpu_count": 8,
+    "python": "3.12.4",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1"
+  },
+  "load": {
+    "start": [
+      3.3916015625,
+      4.626953125,
+      5.53955078125
+    ],
+    "end": [
+      5.99365234375,
+      6.4130859375,
+      6.2978515625
+    ]
+  },
+  "pytest_running_at_start": true,
+  "machine_busy": true,
+  "inputs": {
+    "cascading_n8.json": "00ed265ad02a94bb31347451e8a11ba3e2c647407737159bd4b025733205cca0",
+    "eps_downlink_6sat.json": "6d6c2440ae13453fbacf4d98f813afbfe2150cfcd3c42d1fbdb0184fd08e088c",
+    "eps_imager_6sat.json": "1d3ba74442f97793d5b3e256dcddd477eb71e9441905e306291d5255eecb10e5",
+    "eps_leader_6sat.json": "ccea8e381949c2ef5e89d7f76631525e86f69ee596ca7799eaf569e9a36506f8",
+    "firefly_swarm.json": "890428e35b10e054d70ff7b13e33bcb9007b5f16915dbda53544ac4c48ef1a75",
+    "formation_cartwheel_6sat.json": "eaf22f951c9b4e3fedcd31de820b60710fe38d4333c979c39c50bf99c8fea736",
+    "formation_gco_6sat.json": "54af6ebdaf6fd167fc270ffccb88edd5079c413778da71f189c915dbe5291505",
+    "formation_helix_6sat.json": "10d9691921063cda876bc57a2b73e54a17af15df8804890180df41ba3b0f6105",
+    "formation_pco_6sat.json": "0e9b1e4ed380b1ef9065f72a33cf157dbe2a06569966189a676b804fd950cebb",
+    "formation_string_6sat.json": "fa4c7bd9396ea46b91fbf7e69a1007970f715d401071ae25912ab4a70351f985",
+    "leader_failure_6sat.json": "81f0a243b71820d92bd158c7b734d0b00e530d7cddcc9dd67ac382086817fd22",
+    "live_12sat.json": "8aa2b8fec43cec053954dbdb326c01b64c4d56e1c7453c38eb37f4ef5bd4f352",
+    "live_16sat.json": "0e43879c4da0c75342883d57b1302cee6a2fd37c23c194384491cb324b21c6f4",
+    "live_24sat.json": "3d42b2c83dd3ba696286efbbc9cf3629ccb02963fd4d36249e9bb67504ea5192",
+    "live_2sat.json": "d2dbd8cb2527b6a20c0aea8c21dd00ba4d8b9beef99d94e52e8a62afd6661b5f",
+    "live_6sat.json": "95cadd4bf21277c63dc72dc0c9b4b193ab0a7ee32e0b1ac08a360e5c07f0b78e",
+    "live_8sat.json": "1318390c33c7a50faa5122a17389fb33a45bc7e911ad7c506a7673f9fffa8f06",
+    "nominal.json": "03bf1c47320d8867aada1a5822c0a49480b8a4289a64cb1b4104acb48b0e84b6",
+    "proximity_stress.json": "b1c06566c5bc157c5b51fe8a2211fa3bd5ab1c9efbd2b88d693775d7f7c0ab17",
+    "single_failure_n4.json": "030ce0ead4ced7c907c26c04347ad0a0c6d49c5ab6eab8bc815b6554b3fa1385",
+    "thruster_leader_6sat.json": "440558ec3021e98a687e397a25ce02b3f7ec3f72ff6cf045b40ae7193509b515",
+    "two_failure.json": "84bf8027f2c0ab962b4a5363f8c556cbc9c5a405cdf79519ce9885d02c2e639f"
+  },
+  "skipped_scenarios": [],
+  "scenarios": [
+    {
+      "id": "cascading_n8",
+      "name": "cascading_n8",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 8,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 3,
+      "compute_s": {
+        "median": 3.07366,
+        "min": 2.70855,
+        "max": 3.12799,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000544417,
+        "min": 0.000531958,
+        "max": 0.00101083,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00979204,
+        "min": 0.0093165,
+        "max": 0.0101117,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.109773,
+          "min": 0.10666,
+          "max": 0.111691,
+          "n": 3
+        },
+        "50": {
+          "median": 0.117079,
+          "min": 0.111538,
+          "max": 0.137545,
+          "n": 3
+        },
+        "75": {
+          "median": 0.124833,
+          "min": 0.116018,
+          "max": 0.16924,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-7",
+        "50": "SAT-7",
+        "75": "SAT-7"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.358573,
+        "min": 0.317801,
+        "max": 0.36551,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.380556,
+        "min": 0.348389,
+        "max": 0.404625,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 89.3495,
+        "min": 88.5056,
+        "max": 136.637,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 15.8886,
+          "min": 15.7043,
+          "max": 17.3062,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 16.417,
+          "min": 16.333,
+          "max": 20.209,
+          "n": 3
+        },
+        "json_us": {
+          "median": 41.8632,
+          "min": 41.603,
+          "max": 43.6816,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2075.806106870229,
+        "bytes_per_frame_max": 2903,
+        "bytes_total": 17675489,
+        "alloc_peak_bytes_per_to_messages_mean": 2485.44,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "eps_downlink_6sat",
+      "name": "eps_downlink_6sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 1,
+      "compute_s": {
+        "median": 2.10274,
+        "min": 2.09398,
+        "max": 2.17119,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000560041,
+        "min": 0.000485333,
+        "max": 0.00112812,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00677029,
+        "min": 0.00669271,
+        "max": 0.00829554,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.032315,
+          "min": 0.0319338,
+          "max": 0.0355608,
+          "n": 3
+        },
+        "50": {
+          "median": 0.03712,
+          "min": 0.0346778,
+          "max": 0.0635053,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0386878,
+          "min": 0.0376677,
+          "max": 0.0395329,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-5",
+        "50": "SAT-5",
+        "75": "SAT-5"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.24581,
+        "min": 0.244721,
+        "max": 0.254679,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.293667,
+        "min": 0.278098,
+        "max": 0.293708,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 69.188,
+        "min": 68.9163,
+        "max": 69.2138,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 14.8047,
+          "min": 13.7754,
+          "max": 17.3108,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 18.5956,
+          "min": 15.041,
+          "max": 23.167,
+          "n": 3
+        },
+        "json_us": {
+          "median": 38.035,
+          "min": 36.2123,
+          "max": 44.0805,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1600.6103347034646,
+        "bytes_per_frame_max": 2367,
+        "bytes_total": 13629197,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "eps_imager_6sat",
+      "name": "eps_imager_6sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 1,
+      "compute_s": {
+        "median": 2.2236,
+        "min": 2.1323,
+        "max": 2.30314,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000549334,
+        "min": 0.00051325,
+        "max": 0.000806083,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00771513,
+        "min": 0.00762254,
+        "max": 0.00812421,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0335968,
+          "min": 0.0330675,
+          "max": 0.0346541,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0365074,
+          "min": 0.0353376,
+          "max": 0.0437458,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0395925,
+          "min": 0.0388015,
+          "max": 0.0412454,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.259495,
+        "min": 0.249135,
+        "max": 0.270253,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.328167,
+        "min": 0.287242,
+        "max": 0.331306,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 74.6435,
+        "min": 68.8962,
+        "max": 78.7299,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 13.1553,
+          "min": 13.0132,
+          "max": 13.5517,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 13.708,
+          "min": 13.542,
+          "max": 14.041,
+          "n": 3
+        },
+        "json_us": {
+          "median": 32.8194,
+          "min": 32.6764,
+          "max": 33.6635,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1579.2779800352318,
+        "bytes_per_frame_max": 2184,
+        "bytes_total": 13447552,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "eps_leader_6sat",
+      "name": "eps_leader_6sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 1,
+      "compute_s": {
+        "median": 2.11517,
+        "min": 2.01407,
+        "max": 2.20222,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000508125,
+        "min": 0.000475167,
+        "max": 0.000674958,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00914121,
+        "min": 0.0087635,
+        "max": 0.00971525,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0388471,
+          "min": 0.0321248,
+          "max": 0.0550465,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0482971,
+          "min": 0.0402259,
+          "max": 0.0507841,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0449251,
+          "min": 0.0431634,
+          "max": 0.0489938,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.246991,
+        "min": 0.236256,
+        "max": 0.257057,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.247166,
+        "min": 0.243541,
+        "max": 0.287029,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 70.682,
+        "min": 68.8067,
+        "max": 71.2043,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 16.7333,
+          "min": 15.8631,
+          "max": 20.7243,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 19.1663,
+          "min": 18.375,
+          "max": 21.709,
+          "n": 3
+        },
+        "json_us": {
+          "median": 41.3506,
+          "min": 39.0883,
+          "max": 46.1458,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1574.9226071638286,
+        "bytes_per_frame_max": 2176,
+        "bytes_total": 13410466,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "firefly_swarm",
+      "name": "hypothetical-swarm-on-FIREFLY-1",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8683,
+      "dt_s": 2.0,
+      "n_failures": 2,
+      "compute_s": {
+        "median": 2.09299,
+        "min": 1.91115,
+        "max": 2.34978,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000587625,
+        "min": 0.000538334,
+        "max": 0.000684291,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00740308,
+        "min": 0.00687517,
+        "max": 0.00776883,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0352225,
+          "min": 0.0339675,
+          "max": 0.0439994,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0421757,
+          "min": 0.0389013,
+          "max": 0.0511681,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0411969,
+          "min": 0.0408177,
+          "max": 0.0437297,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.23988,
+        "min": 0.218875,
+        "max": 0.270391,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.283248,
+        "min": 0.237042,
+        "max": 0.302532,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 82.6006,
+        "min": 70.4665,
+        "max": 95.2593,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8683,
+        "to_messages_us": {
+          "median": 12.9463,
+          "min": 12.6374,
+          "max": 13.2514,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 14.583,
+          "min": 13.25,
+          "max": 14.709,
+          "n": 3
+        },
+        "json_us": {
+          "median": 33.3767,
+          "min": 32.501,
+          "max": 33.8453,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1620.883795923068,
+        "bytes_per_frame_max": 2206,
+        "bytes_total": 14074134,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "formation_cartwheel_6sat",
+      "name": "formation_cartwheel_6sat",
+      "engine": "v2",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 2839,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 1.91039,
+        "min": 1.89933,
+        "max": 2.1606,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000624167,
+        "min": 0.00059075,
+        "max": 0.00814025,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0181481,
+        "min": 0.0147726,
+        "max": 0.0243836,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0080445,
+          "min": 0.00683754,
+          "max": 0.00912042,
+          "n": 3
+        },
+        "50": {
+          "median": 0.00932192,
+          "min": 0.00815021,
+          "max": 0.0101951,
+          "n": 3
+        },
+        "75": {
+          "median": 0.010689,
+          "min": 0.0105698,
+          "max": 0.0127313,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.669899,
+        "min": 0.666949,
+        "max": 0.753967,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.755672,
+        "min": 0.682833,
+        "max": 1.07846,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 27.0424,
+        "min": 2.63175,
+        "max": 29.8524,
+        "n": 3
+      },
+      "wire": {
+        "frames": 2839,
+        "to_messages_us": {
+          "median": 14.6747,
+          "min": 14.6515,
+          "max": 14.8893,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 16.541,
+          "min": 16.4161,
+          "max": 16.8791,
+          "n": 3
+        },
+        "json_us": {
+          "median": 49.1336,
+          "min": 49.0559,
+          "max": 49.2662,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2680.89996477633,
+        "bytes_per_frame_max": 2708,
+        "bytes_total": 7611075,
+        "alloc_peak_bytes_per_to_messages_mean": 3408.16,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "formation_gco_6sat",
+      "name": "formation_gco_6sat",
+      "engine": "v2",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 2839,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 2.06585,
+        "min": 1.94235,
+        "max": 2.14842,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000613042,
+        "min": 0.000612042,
+        "max": 0.000805958,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0207552,
+        "min": 0.0181492,
+        "max": 0.0265719,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0119433,
+          "min": 0.0067535,
+          "max": 0.0141796,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0170753,
+          "min": 0.011264,
+          "max": 0.0530406,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0148205,
+          "min": 0.0125462,
+          "max": 0.018603,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.725332,
+        "min": 0.683662,
+        "max": 0.754815,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.925637,
+        "min": 0.761135,
+        "max": 0.940079,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 26.3383,
+        "min": 24.655,
+        "max": 38.9171,
+        "n": 3
+      },
+      "wire": {
+        "frames": 2839,
+        "to_messages_us": {
+          "median": 19.6411,
+          "min": 17.8605,
+          "max": 20.9387,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 25.3414,
+          "min": 20.083,
+          "max": 26.7164,
+          "n": 3
+        },
+        "json_us": {
+          "median": 63.4591,
+          "min": 59.3838,
+          "max": 68.3389,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2678.6033814723496,
+        "bytes_per_frame_max": 2708,
+        "bytes_total": 7604555,
+        "alloc_peak_bytes_per_to_messages_mean": 3408.16,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "formation_helix_6sat",
+      "name": "formation_helix_6sat",
+      "engine": "v2",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 2839,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 3.50557,
+        "min": 2.48919,
+        "max": 4.09476,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.00110208,
+        "min": 0.000769458,
+        "max": 0.00118554,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0165419,
+        "min": 0.0150015,
+        "max": 0.0215288,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.00933892,
+          "min": 0.00929442,
+          "max": 0.0131771,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0139717,
+          "min": 0.008459,
+          "max": 0.0172379,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0160247,
+          "min": 0.01006,
+          "max": 0.0244168,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 1.23221,
+        "min": 0.875879,
+        "max": 1.43688,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 2.00047,
+        "min": 1.05418,
+        "max": 2.65264,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 55.7184,
+        "min": 26.3959,
+        "max": 104.845,
+        "n": 3
+      },
+      "wire": {
+        "frames": 2839,
+        "to_messages_us": {
+          "median": 37.3496,
+          "min": 31.2071,
+          "max": 37.9909,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 49.7205,
+          "min": 38.5083,
+          "max": 59.5208,
+          "n": 3
+        },
+        "json_us": {
+          "median": 87.8031,
+          "min": 85.0563,
+          "max": 98.9018,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2676.179992955266,
+        "bytes_per_frame_max": 2701,
+        "bytes_total": 7597675,
+        "alloc_peak_bytes_per_to_messages_mean": 3408.16,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "formation_pco_6sat",
+      "name": "formation_pco_6sat",
+      "engine": "v2",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 2839,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 2.47749,
+        "min": 2.34108,
+        "max": 2.71272,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.00100229,
+        "min": 0.000790292,
+        "max": 0.00131883,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0219583,
+        "min": 0.0149745,
+        "max": 0.0240353,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.00914621,
+          "min": 0.006602,
+          "max": 0.0123622,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0122055,
+          "min": 0.00895004,
+          "max": 0.0138308,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0102933,
+          "min": 0.00958813,
+          "max": 0.0156691,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.869899,
+        "min": 0.821934,
+        "max": 0.954768,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 1.13611,
+        "min": 1.04723,
+        "max": 1.37124,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 37.3645,
+        "min": 7.56792,
+        "max": 41.3392,
+        "n": 3
+      },
+      "wire": {
+        "frames": 2839,
+        "to_messages_us": {
+          "median": 14.1078,
+          "min": 14.0036,
+          "max": 14.237,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 14.833,
+          "min": 14.708,
+          "max": 15.2541,
+          "n": 3
+        },
+        "json_us": {
+          "median": 47.5143,
+          "min": 47.3158,
+          "max": 47.7684,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2678.20570623459,
+        "bytes_per_frame_max": 2704,
+        "bytes_total": 7603426,
+        "alloc_peak_bytes_per_to_messages_mean": 3408.16,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "formation_string_6sat",
+      "name": "formation_string_6sat",
+      "engine": "v2",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 2839,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 1.93328,
+        "min": 1.87947,
+        "max": 2.88327,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000629375,
+        "min": 0.000570833,
+        "max": 0.000703333,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0150074,
+        "min": 0.0149248,
+        "max": 0.0177187,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.00700075,
+          "min": 0.00676246,
+          "max": 0.00713475,
+          "n": 3
+        },
+        "50": {
+          "median": 0.00855671,
+          "min": 0.00828863,
+          "max": 0.00903425,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0100524,
+          "min": 0.00973721,
+          "max": 0.0104195,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.678632,
+        "min": 0.661447,
+        "max": 1.01298,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.700166,
+        "min": 0.676185,
+        "max": 1.63696,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 34.8596,
+        "min": 22.1831,
+        "max": 306.158,
+        "n": 3
+      },
+      "wire": {
+        "frames": 2839,
+        "to_messages_us": {
+          "median": 14.0511,
+          "min": 14.017,
+          "max": 15.5198,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 14.583,
+          "min": 14.583,
+          "max": 21.042,
+          "n": 3
+        },
+        "json_us": {
+          "median": 49.0968,
+          "min": 48.7252,
+          "max": 52.7231,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2755.6759422331806,
+        "bytes_per_frame_max": 2815,
+        "bytes_total": 7823364,
+        "alloc_peak_bytes_per_to_messages_mean": 3408.16,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "leader_failure_6sat",
+      "name": "leader_failure_6sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 2,
+      "compute_s": {
+        "median": 1.86281,
+        "min": 1.81064,
+        "max": 1.88547,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000475708,
+        "min": 0.000463,
+        "max": 0.000636125,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00684812,
+        "min": 0.006762,
+        "max": 0.00852287,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0342078,
+          "min": 0.0335225,
+          "max": 0.034608,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0372497,
+          "min": 0.0359595,
+          "max": 0.03748,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0400309,
+          "min": 0.0384245,
+          "max": 0.0405469,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.217525,
+        "min": 0.212453,
+        "max": 0.220128,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.242417,
+        "min": 0.241917,
+        "max": 0.243875,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 69.1695,
+        "min": 69.0683,
+        "max": 69.8942,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 12.5586,
+          "min": 12.5384,
+          "max": 12.6421,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 13.25,
+          "min": 13.167,
+          "max": 13.292,
+          "n": 3
+        },
+        "json_us": {
+          "median": 33.2566,
+          "min": 33.1432,
+          "max": 33.3099,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1608.1188490898414,
+        "bytes_per_frame_max": 2369,
+        "bytes_total": 13693132,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "live_12sat",
+      "name": "live_12sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 12,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 5.58969,
+        "min": 5.54383,
+        "max": 5.59727,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000517833,
+        "min": 0.000437292,
+        "max": 0.000665084,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0152622,
+        "min": 0.0146693,
+        "max": 0.0248642,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0518451,
+          "min": 0.0500531,
+          "max": 0.0713255,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0625066,
+          "min": 0.0620797,
+          "max": 0.0635348,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0677039,
+          "min": 0.0651731,
+          "max": 0.137668,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-12",
+        "50": "SAT-12",
+        "75": "SAT-12"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.653923,
+        "min": 0.650874,
+        "max": 0.655364,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.650181,
+        "min": 0.639166,
+        "max": 0.666348,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 92.0508,
+        "min": 56.9403,
+        "max": 99.0773,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 22.2223,
+          "min": 22.0986,
+          "max": 22.5956,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 23.0833,
+          "min": 22.917,
+          "max": 23.417,
+          "n": 3
+        },
+        "json_us": {
+          "median": 60.6772,
+          "min": 59.9189,
+          "max": 60.689,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2717.5941280093953,
+        "bytes_per_frame_max": 2749,
+        "bytes_total": 23140314,
+        "alloc_peak_bytes_per_to_messages_mean": 3580.28,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "live_16sat",
+      "name": "live_16sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 16,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 11.5259,
+        "min": 9.77908,
+        "max": 12.3898,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000980375,
+        "min": 0.000539125,
+        "max": 0.000993708,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0400598,
+        "min": 0.0278978,
+        "max": 0.0421422,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.185218,
+          "min": 0.132944,
+          "max": 0.309814,
+          "n": 3
+        },
+        "50": {
+          "median": 0.137099,
+          "min": 0.114715,
+          "max": 0.169168,
+          "n": 3
+        },
+        "75": {
+          "median": 0.29446,
+          "min": 0.255607,
+          "max": 0.366804,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-16",
+        "50": "SAT-16",
+        "75": "SAT-16"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 1.33376,
+        "min": 1.13775,
+        "max": 1.45438,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 2.11418,
+        "min": 1.73073,
+        "max": 2.15229,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 213.655,
+        "min": 209.814,
+        "max": 315.611,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 57.7329,
+          "min": 50.9516,
+          "max": 69.0059,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 79.1373,
+          "min": 65.792,
+          "max": 112.296,
+          "n": 3
+        },
+        "json_us": {
+          "median": 137.036,
+          "min": 127.749,
+          "max": 154.584,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 3566.3020551967115,
+        "bytes_per_frame_max": 3596,
+        "bytes_total": 30367062,
+        "alloc_peak_bytes_per_to_messages_mean": 4600.92,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "live_24sat",
+      "name": "live_24sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 24,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 29.5651,
+        "min": 29.2473,
+        "max": 34.0189,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.00133908,
+        "min": 0.001029,
+        "max": 0.00157875,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0464383,
+        "min": 0.0431192,
+        "max": 0.0638757,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.114492,
+          "min": 0.0712094,
+          "max": 0.138606,
+          "n": 3
+        },
+        "50": {
+          "median": 0.231549,
+          "min": 0.146373,
+          "max": 0.300046,
+          "n": 3
+        },
+        "75": {
+          "median": 0.201817,
+          "min": 0.102214,
+          "max": 0.542563,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-24",
+        "50": "SAT-24",
+        "75": "SAT-24"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 3.47118,
+        "min": 3.42711,
+        "max": 3.96113,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 5.47403,
+        "min": 5.01974,
+        "max": 6.42534,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 676.122,
+        "min": 633.342,
+        "max": 716.472,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 96.1506,
+          "min": 65.2682,
+          "max": 175.125,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 150.963,
+          "min": 90.6376,
+          "max": 196.263,
+          "n": 3
+        },
+        "json_us": {
+          "median": 208.318,
+          "min": 166.589,
+          "max": 260.144,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 5214.794832648267,
+        "bytes_per_frame_max": 5249,
+        "bytes_total": 44403978,
+        "alloc_peak_bytes_per_to_messages_mean": 6727.64,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": [
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:2615(norm)",
+          "ncalls": 7458540,
+          "tottime_s": 11.802,
+          "cumtime_s": 24.2132,
+          "tottime_pct": 23.9
+        },
+        {
+          "function": "cubesat/sim.py:247(step)",
+          "ncalls": 8515,
+          "tottime_s": 10.5365,
+          "cumtime_s": 49.2478,
+          "tottime_pct": 21.4
+        },
+        {
+          "function": "~:0(<method 'dot' of 'numpy.ndarray' objects>)",
+          "ncalls": 7458540,
+          "tottime_s": 5.9616,
+          "cumtime_s": 5.9616,
+          "tottime_pct": 12.1
+        },
+        {
+          "function": "cubesat/sim.py:436(<genexpr>)",
+          "ncalls": 2358655,
+          "tottime_s": 4.0391,
+          "cumtime_s": 11.9595,
+          "tottime_pct": 8.2
+        },
+        {
+          "function": "~:0(<built-in method numpy.array>)",
+          "ncalls": 630063,
+          "tottime_s": 2.2402,
+          "cumtime_s": 2.2402,
+          "tottime_pct": 4.5
+        },
+        {
+          "function": "~:0(<method 'ravel' of 'numpy.ndarray' objects>)",
+          "ncalls": 7458540,
+          "tottime_s": 2.0914,
+          "cumtime_s": 2.0914,
+          "tottime_pct": 4.2
+        },
+        {
+          "function": "~:0(<built-in method builtins.issubclass>)",
+          "ncalls": 14917080,
+          "tottime_s": 1.7894,
+          "cumtime_s": 1.7894,
+          "tottime_pct": 3.6
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:168(isComplexType)",
+          "ncalls": 7458540,
+          "tottime_s": 1.649,
+          "cumtime_s": 2.4715,
+          "tottime_pct": 3.3
+        },
+        {
+          "function": "~:0(<built-in method numpy.asarray>)",
+          "ncalls": 9306079,
+          "tottime_s": 1.3419,
+          "cumtime_s": 1.3419,
+          "tottime_pct": 2.7
+        },
+        {
+          "function": "cubesat/pd.py:56(command)",
+          "ncalls": 204336,
+          "tottime_s": 1.2212,
+          "cumtime_s": 2.1733,
+          "tottime_pct": 2.5
+        },
+        {
+          "function": "cubesat/coverage.py:38(coverage_fraction)",
+          "ncalls": 8515,
+          "tottime_s": 1.2018,
+          "cumtime_s": 1.4622,
+          "tottime_pct": 2.4
+        },
+        {
+          "function": "cubesat/hcw.py:109(propagate_controlled)",
+          "ncalls": 204336,
+          "tottime_s": 1.0887,
+          "cumtime_s": 3.3668,
+          "tottime_pct": 2.2
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:2611(_norm_dispatcher)",
+          "ncalls": 7458540,
+          "tottime_s": 0.8213,
+          "cumtime_s": 0.8213,
+          "tottime_pct": 1.7
+        },
+        {
+          "function": "cubesat/hcw.py:28(stm)",
+          "ncalls": 408672,
+          "tottime_s": 0.7997,
+          "cumtime_s": 2.4961,
+          "tottime_pct": 1.6
+        },
+        {
+          "function": "cubesat/hcw.py:57(propagate)",
+          "ncalls": 204336,
+          "tottime_s": 0.6025,
+          "cumtime_s": 2.0284,
+          "tottime_pct": 1.2
+        }
+      ]
+    },
+    {
+      "id": "live_24sat@v2",
+      "name": "live_24sat",
+      "engine": "v2",
+      "variant": true,
+      "variant_of": "live_24sat.json",
+      "v2_validates": true,
+      "n_sats": 24,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 11.1704,
+        "min": 10.7292,
+        "max": 19.7504,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.0015435,
+        "min": 0.00107304,
+        "max": 0.00450425,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0340126,
+        "min": 0.0333766,
+        "max": 0.034173,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0145345,
+          "min": 0.0138803,
+          "max": 0.0207367,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0434859,
+          "min": 0.0374858,
+          "max": 0.0874964,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0763118,
+          "min": 0.0654886,
+          "max": 0.12072,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-24",
+        "50": "SAT-24",
+        "75": "SAT-24"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 1.31054,
+        "min": 1.24978,
+        "max": 2.3094,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 1.82549,
+        "min": 1.54324,
+        "max": 3.34196,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 255.163,
+        "min": 193.711,
+        "max": 1557.63,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 75.37,
+          "min": 63.9134,
+          "max": 77.0221,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 109.008,
+          "min": 80.6919,
+          "max": 120.192,
+          "n": 3
+        },
+        "json_us": {
+          "median": 207.583,
+          "min": 206.793,
+          "max": 213.59,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 9304.057193188492,
+        "bytes_per_frame_max": 9404,
+        "bytes_total": 79224047,
+        "alloc_peak_bytes_per_to_messages_mean": 11611.8,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "live_2sat",
+      "name": "live_2sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 2,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 0.817802,
+        "min": 0.635743,
+        "max": 1.5102,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.00106733,
+        "min": 0.000605333,
+        "max": 0.00179429,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00419696,
+        "min": 0.0041565,
+        "max": 0.0102901,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0150532,
+          "min": 0.0126834,
+          "max": 0.0159495,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0168343,
+          "min": 0.0165629,
+          "max": 0.019568,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0167702,
+          "min": 0.0151409,
+          "max": 0.0169267,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-2",
+        "50": "SAT-2",
+        "75": "SAT-2"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.0949106,
+        "min": 0.073948,
+        "max": 0.17017,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.129987,
+        "min": 0.082375,
+        "max": 0.327458,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 1.43454,
+        "min": 0.753167,
+        "max": 95.4305,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 7.84688,
+          "min": 7.79031,
+          "max": 8.41967,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 8.792,
+          "min": 8.667,
+          "max": 10.666,
+          "n": 3
+        },
+        "json_us": {
+          "median": 17.9271,
+          "min": 17.8376,
+          "max": 18.6208,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 639.4313564298297,
+        "bytes_per_frame_max": 660,
+        "bytes_total": 5444758,
+        "alloc_peak_bytes_per_to_messages_mean": 923.36,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "live_6sat",
+      "name": "live_6sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 2.58477,
+        "min": 2.40664,
+        "max": 2.67568,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000607625,
+        "min": 0.000499417,
+        "max": 0.000647,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00747763,
+        "min": 0.00682921,
+        "max": 0.00798604,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0444569,
+          "min": 0.0439462,
+          "max": 0.047784,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0493317,
+          "min": 0.0475777,
+          "max": 0.0588871,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0502112,
+          "min": 0.049121,
+          "max": 0.0517305,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.302245,
+        "min": 0.281429,
+        "max": 0.31396,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.386827,
+        "min": 0.333291,
+        "max": 0.445404,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 53.8622,
+        "min": 28.5302,
+        "max": 57.1572,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 14.3082,
+          "min": 14.1865,
+          "max": 14.4136,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 16.9293,
+          "min": 15.3043,
+          "max": 16.9419,
+          "n": 3
+        },
+        "json_us": {
+          "median": 36.1378,
+          "min": 35.923,
+          "max": 36.3315,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1469.9223722842044,
+        "bytes_per_frame_max": 1491,
+        "bytes_total": 12516389,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "live_8sat",
+      "name": "live_8sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 8,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 3.38751,
+        "min": 3.36274,
+        "max": 3.52224,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000584,
+        "min": 0.000546166,
+        "max": 0.000762584,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00991133,
+        "min": 0.00982162,
+        "max": 0.0103535,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0544382,
+          "min": 0.0529949,
+          "max": 0.0584935,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0555074,
+          "min": 0.054943,
+          "max": 0.0580498,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0612987,
+          "min": 0.0581848,
+          "max": 0.0800405,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-8",
+        "50": "SAT-8",
+        "75": "SAT-8"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.396262,
+        "min": 0.393436,
+        "max": 0.413195,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.429808,
+        "min": 0.42525,
+        "max": 0.529966,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 71.897,
+        "min": 38.5643,
+        "max": 75.3311,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 16.6825,
+          "min": 16.3706,
+          "max": 16.7019,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 18.667,
+          "min": 18.459,
+          "max": 18.667,
+          "n": 3
+        },
+        "json_us": {
+          "median": 43.7704,
+          "min": 43.2023,
+          "max": 43.8497,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1883.2982971227245,
+        "bytes_per_frame_max": 1909,
+        "bytes_total": 16036285,
+        "alloc_peak_bytes_per_to_messages_mean": 2485.44,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "nominal",
+      "name": "nominal",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 2839,
+      "dt_s": 2.0,
+      "n_failures": 0,
+      "compute_s": {
+        "median": 0.737501,
+        "min": 0.711822,
+        "max": 0.755569,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000395667,
+        "min": 0.000395458,
+        "max": 0.000456417,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00679975,
+        "min": 0.00654667,
+        "max": 0.007947,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0431632,
+          "min": 0.0430946,
+          "max": 0.0485343,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0524293,
+          "min": 0.0446384,
+          "max": 0.0525975,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0468426,
+          "min": 0.0460027,
+          "max": 0.0499614,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.258492,
+        "min": 0.250478,
+        "max": 0.264936,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.278256,
+        "min": 0.276792,
+        "max": 0.28,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 22.7429,
+        "min": 0.794583,
+        "max": 28.6745,
+        "n": 3
+      },
+      "wire": {
+        "frames": 2839,
+        "to_messages_us": {
+          "median": 13.008,
+          "min": 12.8523,
+          "max": 13.6954,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 14.667,
+          "min": 13.583,
+          "max": 15.3372,
+          "n": 3
+        },
+        "json_us": {
+          "median": 33.6096,
+          "min": 33.4318,
+          "max": 34.8933,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1471.7721028531173,
+        "bytes_per_frame_max": 1491,
+        "bytes_total": 4178361,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "proximity_stress",
+      "name": "proximity_stress",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 2,
+      "n_ticks": 2841,
+      "dt_s": 2.0,
+      "n_failures": 1,
+      "compute_s": {
+        "median": 0.168034,
+        "min": 0.139693,
+        "max": 0.19704,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000469625,
+        "min": 0.000339417,
+        "max": 0.00068675,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00393542,
+        "min": 0.00279487,
+        "max": 0.00434021,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.00196342,
+          "min": 0.00171375,
+          "max": 0.00199433,
+          "n": 3
+        },
+        "50": {
+          "median": 0.00252775,
+          "min": 0.00219071,
+          "max": 0.00280283,
+          "n": 3
+        },
+        "75": {
+          "median": 0.00270217,
+          "min": 0.00240533,
+          "max": 0.00346904,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-1",
+        "50": "SAT-1",
+        "75": "SAT-1"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.0582996,
+        "min": 0.0484317,
+        "max": 0.0688407,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.083958,
+        "min": 0.061125,
+        "max": 0.0958108,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 10.0976,
+        "min": 7.18233,
+        "max": 10.7673,
+        "n": 3
+      },
+      "wire": {
+        "frames": 2841,
+        "to_messages_us": {
+          "median": 6.1348,
+          "min": 6.01427,
+          "max": 7.10688,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 6.95801,
+          "min": 6.583,
+          "max": 7.875,
+          "n": 3
+        },
+        "json_us": {
+          "median": 14.3616,
+          "min": 13.9788,
+          "max": 16.2446,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 685.224568813798,
+        "bytes_per_frame_max": 1067,
+        "bytes_total": 1946723,
+        "alloc_peak_bytes_per_to_messages_mean": 923.36,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "single_failure_n4",
+      "name": "single_failure_leader_n4",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 4,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 1,
+      "compute_s": {
+        "median": 1.1774,
+        "min": 1.07234,
+        "max": 1.32024,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000533708,
+        "min": 0.000405666,
+        "max": 0.00058325,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.00508358,
+        "min": 0.004876,
+        "max": 0.00571533,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0308362,
+          "min": 0.0295673,
+          "max": 0.0423872,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0433066,
+          "min": 0.0326886,
+          "max": 0.0612422,
+          "n": 3
+        },
+        "75": {
+          "median": 0.037911,
+          "min": 0.0328889,
+          "max": 0.0552479,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-4",
+        "50": "SAT-4",
+        "75": "SAT-4"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.13803,
+        "min": 0.125032,
+        "max": 0.153995,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.169,
+        "min": 0.145556,
+        "max": 0.209195,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 42.0482,
+        "min": 35.6466,
+        "max": 74.0907,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 13.276,
+          "min": 12.431,
+          "max": 13.2958,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 15.25,
+          "min": 13.8463,
+          "max": 16.416,
+          "n": 3
+        },
+        "json_us": {
+          "median": 31.5365,
+          "min": 30.0453,
+          "max": 31.8754,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1144.2581327069877,
+        "bytes_per_frame_max": 1712,
+        "bytes_total": 9743358,
+        "alloc_peak_bytes_per_to_messages_mean": 1431.68,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "thruster_leader_6sat",
+      "name": "thruster_leader_6sat",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 1,
+      "compute_s": {
+        "median": 2.45136,
+        "min": 2.22327,
+        "max": 2.70095,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000577834,
+        "min": 0.000475583,
+        "max": 0.000786125,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0116545,
+        "min": 0.009939,
+        "max": 0.014285,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0449109,
+          "min": 0.0360211,
+          "max": 0.0454347,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0472774,
+          "min": 0.0410758,
+          "max": 0.0477946,
+          "n": 3
+        },
+        "75": {
+          "median": 0.053462,
+          "min": 0.0466174,
+          "max": 0.0575331,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.28765,
+        "min": 0.259841,
+        "max": 0.315599,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.377098,
+        "min": 0.282932,
+        "max": 0.400083,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 82.6323,
+        "min": 73.3841,
+        "max": 89.4199,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 17.6553,
+          "min": 16.1938,
+          "max": 19.0689,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 24.834,
+          "min": 18.25,
+          "max": 25.584,
+          "n": 3
+        },
+        "json_us": {
+          "median": 44.7197,
+          "min": 41.6424,
+          "max": 48.1282,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1606.018320610687,
+        "bytes_per_frame_max": 2367,
+        "bytes_total": 13675246,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": null
+    },
+    {
+      "id": "two_failure",
+      "name": "two_failure",
+      "engine": "v1",
+      "variant": false,
+      "variant_of": null,
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 2,
+      "compute_s": {
+        "median": 3.0391,
+        "min": 3.00384,
+        "max": 3.37562,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000714583,
+        "min": 0.000625792,
+        "max": 0.000995625,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0102041,
+        "min": 0.00910654,
+        "max": 0.115267,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0666135,
+          "min": 0.0650374,
+          "max": 0.0804397,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0674376,
+          "min": 0.0569687,
+          "max": 0.0767766,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0679547,
+          "min": 0.0661649,
+          "max": 0.0819978,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.356572,
+        "min": 0.349144,
+        "max": 0.394557,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.477548,
+        "min": 0.466438,
+        "max": 0.483654,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 101.399,
+        "min": 100.542,
+        "max": 116.658,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 16.4467,
+          "min": 16.395,
+          "max": 16.5226,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 18.167,
+          "min": 18.083,
+          "max": 18.25,
+          "n": 3
+        },
+        "json_us": {
+          "median": 41.3234,
+          "min": 41.0357,
+          "max": 41.639,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 1600.6461538461538,
+        "bytes_per_frame_max": 2181,
+        "bytes_total": 13629502,
+        "alloc_peak_bytes_per_to_messages_mean": 1977.12,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": [
+        {
+          "function": "~:0(<built-in method numpy.array>)",
+          "ncalls": 152331,
+          "tottime_s": 0.5589,
+          "cumtime_s": 0.5589,
+          "tottime_pct": 14.8
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:2615(norm)",
+          "ncalls": 394969,
+          "tottime_s": 0.5521,
+          "cumtime_s": 1.1221,
+          "tottime_pct": 14.6
+        },
+        {
+          "function": "cubesat/sim.py:247(step)",
+          "ncalls": 8515,
+          "tottime_s": 0.4771,
+          "cumtime_s": 3.7584,
+          "tottime_pct": 12.6
+        },
+        {
+          "function": "~:0(<method 'dot' of 'numpy.ndarray' objects>)",
+          "ncalls": 394948,
+          "tottime_s": 0.2655,
+          "cumtime_s": 0.2655,
+          "tottime_pct": 7.0
+        },
+        {
+          "function": "cubesat/coverage.py:38(coverage_fraction)",
+          "ncalls": 9883,
+          "tottime_s": 0.26,
+          "cumtime_s": 0.4277,
+          "tottime_pct": 6.9
+        },
+        {
+          "function": "cubesat/sim.py:436(<genexpr>)",
+          "ncalls": 136240,
+          "tottime_s": 0.199,
+          "cumtime_s": 0.5806,
+          "tottime_pct": 5.3
+        },
+        {
+          "function": "cubesat/pd.py:56(command)",
+          "ncalls": 35406,
+          "tottime_s": 0.1684,
+          "cumtime_s": 0.3045,
+          "tottime_pct": 4.5
+        },
+        {
+          "function": "cubesat/hcw.py:28(stm)",
+          "ncalls": 98372,
+          "tottime_s": 0.1521,
+          "cumtime_s": 0.6294,
+          "tottime_pct": 4.0
+        },
+        {
+          "function": "cubesat/hcw.py:109(propagate_controlled)",
+          "ncalls": 35406,
+          "tottime_s": 0.1456,
+          "cumtime_s": 0.472,
+          "tottime_pct": 3.9
+        },
+        {
+          "function": "~:0(<method 'reduce' of 'numpy.ufunc' objects>)",
+          "ncalls": 19808,
+          "tottime_s": 0.1436,
+          "cumtime_s": 0.1436,
+          "tottime_pct": 3.8
+        },
+        {
+          "function": "cubesat/hcw.py:57(propagate)",
+          "ncalls": 62966,
+          "tottime_s": 0.1347,
+          "cumtime_s": 0.627,
+          "tottime_pct": 3.6
+        },
+        {
+          "function": "~:0(<built-in method numpy.asarray>)",
+          "ncalls": 778720,
+          "tottime_s": 0.1221,
+          "cumtime_s": 0.1221,
+          "tottime_pct": 3.2
+        },
+        {
+          "function": "~:0(<method 'ravel' of 'numpy.ndarray' objects>)",
+          "ncalls": 394948,
+          "tottime_s": 0.0969,
+          "cumtime_s": 0.0969,
+          "tottime_pct": 2.6
+        },
+        {
+          "function": "~:0(<built-in method builtins.issubclass>)",
+          "ncalls": 789917,
+          "tottime_s": 0.0856,
+          "cumtime_s": 0.0856,
+          "tottime_pct": 2.3
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:168(isComplexType)",
+          "ncalls": 394948,
+          "tottime_s": 0.0772,
+          "cumtime_s": 0.1179,
+          "tottime_pct": 2.0
+        }
+      ]
+    },
+    {
+      "id": "two_failure@v2",
+      "name": "two_failure",
+      "engine": "v2",
+      "variant": true,
+      "variant_of": "two_failure.json",
+      "v2_validates": true,
+      "n_sats": 6,
+      "n_ticks": 8515,
+      "dt_s": 2.0,
+      "n_failures": 2,
+      "compute_s": {
+        "median": 6.54782,
+        "min": 5.67369,
+        "max": 6.93881,
+        "n": 3
+      },
+      "setup_s": {
+        "median": 0.000988292,
+        "min": 0.000818292,
+        "max": 0.00376529,
+        "n": 3
+      },
+      "first_frame_s": {
+        "median": 0.0178469,
+        "min": 0.0158288,
+        "max": 0.0270856,
+        "n": 3
+      },
+      "inject_s": {
+        "25": {
+          "median": 0.0120567,
+          "min": 0.00725767,
+          "max": 0.0149365,
+          "n": 3
+        },
+        "50": {
+          "median": 0.0402987,
+          "min": 0.0202912,
+          "max": 0.0451807,
+          "n": 3
+        },
+        "75": {
+          "median": 0.0312119,
+          "min": 0.0242324,
+          "max": 0.0357724,
+          "n": 3
+        }
+      },
+      "inject_sat": {
+        "25": "SAT-6",
+        "50": "SAT-6",
+        "75": "SAT-6"
+      },
+      "inject_errors": [],
+      "tick_ms_mean": {
+        "median": 0.767108,
+        "min": 0.663242,
+        "max": 0.814204,
+        "n": 3
+      },
+      "tick_ms_p95": {
+        "median": 0.894264,
+        "min": 0.748836,
+        "max": 0.904973,
+        "n": 3
+      },
+      "tick_ms_max": {
+        "median": 84.4511,
+        "min": 46.8901,
+        "max": 92.7256,
+        "n": 3
+      },
+      "wire": {
+        "frames": 8515,
+        "to_messages_us": {
+          "median": 18.2584,
+          "min": 17.1978,
+          "max": 22.9075,
+          "n": 3
+        },
+        "to_messages_us_p95": {
+          "median": 20.166,
+          "min": 19.042,
+          "max": 30.0123,
+          "n": 3
+        },
+        "json_us": {
+          "median": 59.7076,
+          "min": 58.7048,
+          "max": 61.7997,
+          "n": 3
+        },
+        "bytes_per_frame_mean": 2706.4328831473867,
+        "bytes_per_frame_max": 2839,
+        "bytes_total": 23045276,
+        "alloc_peak_bytes_per_to_messages_mean": 3408.16,
+        "alloc_peak_sample_frames": 50
+      },
+      "profile": [
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/linalg/_linalg.py:2615(norm)",
+          "ncalls": 285048,
+          "tottime_s": 0.7985,
+          "cumtime_s": 1.4001,
+          "tottime_pct": 6.8
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/_core/numeric.py:1563(cross)",
+          "ncalls": 51094,
+          "tottime_s": 0.722,
+          "cumtime_s": 2.6177,
+          "tottime_pct": 6.1
+        },
+        {
+          "function": "cubesat/roles_v2.py:55(assign_roles)",
+          "ncalls": 8515,
+          "tottime_s": 0.7024,
+          "cumtime_s": 1.2423,
+          "tottime_pct": 6.0
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/_core/numeric.py:1427(normalize_axis_tuple)",
+          "ncalls": 306564,
+          "tottime_s": 0.5434,
+          "cumtime_s": 1.1482,
+          "tottime_pct": 4.6
+        },
+        {
+          "function": "cubesat/truth.py:48(accel_j2)",
+          "ncalls": 34060,
+          "tottime_s": 0.5191,
+          "cumtime_s": 0.6983,
+          "tottime_pct": 4.4
+        },
+        {
+          "function": "cubesat/truth.py:67(accel_drag)",
+          "ncalls": 34060,
+          "tottime_s": 0.4958,
+          "cumtime_s": 1.9813,
+          "tottime_pct": 4.2
+        },
+        {
+          "function": "~:0(<method 'reduce' of 'numpy.ufunc' objects>)",
+          "ncalls": 212875,
+          "tottime_s": 0.4414,
+          "cumtime_s": 0.4414,
+          "tottime_pct": 3.7
+        },
+        {
+          "function": "cubesat/rng_v2.py:28(draw_tick)",
+          "ncalls": 8515,
+          "tottime_s": 0.4166,
+          "cumtime_s": 0.4326,
+          "tottime_pct": 3.5
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/_core/numeric.py:1489(moveaxis)",
+          "ncalls": 153282,
+          "tottime_s": 0.4033,
+          "cumtime_s": 1.735,
+          "tottime_pct": 3.4
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/_core/numeric.py:1476(<genexpr>)",
+          "ncalls": 613128,
+          "tottime_s": 0.3901,
+          "cumtime_s": 0.4407,
+          "tottime_pct": 3.3
+        },
+        {
+          "function": "cubesat/sim_v2.py:116(step)",
+          "ncalls": 8515,
+          "tottime_s": 0.343,
+          "cumtime_s": 11.7548,
+          "tottime_pct": 2.9
+        },
+        {
+          "function": "cubesat/truth.py:58(density)",
+          "ncalls": 34060,
+          "tottime_s": 0.3167,
+          "cumtime_s": 0.7147,
+          "tottime_pct": 2.7
+        },
+        {
+          "function": "cubesat/coverage.py:38(coverage_fraction)",
+          "ncalls": 8515,
+          "tottime_s": 0.3125,
+          "cumtime_s": 0.4786,
+          "tottime_pct": 2.7
+        },
+        {
+          "function": "cubesat/sim_v2.py:271(_advance)",
+          "ncalls": 8515,
+          "tottime_s": 0.239,
+          "cumtime_s": 5.7778,
+          "tottime_pct": 2.0
+        },
+        {
+          "function": ".venv/lib/python3.12/site-packages/numpy/_core/_methods.py:96(_clip)",
+          "ncalls": 42575,
+          "tottime_s": 0.1906,
+          "cumtime_s": 0.2526,
+          "tottime_pct": 1.6
+        }
+      ]
+    }
+  ],
+  "websocket": {
+    "feasible": true,
+    "scenario": "two_failure",
+    "window_s": 10.0,
+    "runs": [
+      {
+        "speed": 1,
+        "frames_total": 8515,
+        "sim_states_received": 5,
+        "first_frame_s": {
+          "median": 0.0246921,
+          "min": 0.0102198,
+          "max": 0.0395573,
+          "n": 3
+        },
+        "start_http_returned_s": {
+          "median": 0.0247529,
+          "min": 0.0103265,
+          "max": 0.0401683,
+          "n": 3
+        },
+        "frames_per_s": {
+          "median": 0.499959,
+          "min": 0.49977,
+          "max": 0.500047,
+          "n": 3
+        },
+        "bytes_per_s": {
+          "median": 871.349,
+          "min": 845.379,
+          "max": 871.678,
+          "n": 3
+        },
+        "repeats_raw": [
+          {
+            "first_frame_s": 0.03955733300244901,
+            "start_http_returned_s": 0.04016833299829159,
+            "sim_states_received": 5,
+            "frames_total": 8515,
+            "frames_per_s": 0.49976975969524695,
+            "bytes_per_s": 871.348576028663,
+            "last_sim_time_s": 8.0
+          },
+          {
+            "first_frame_s": 0.024692125000001397,
+            "start_http_returned_s": 0.02475291700102389,
+            "sim_states_received": 6,
+            "frames_total": 8515,
+            "frames_per_s": 0.5000467939290398,
+            "bytes_per_s": 845.3791098164347,
+            "last_sim_time_s": 10.0
+          },
+          {
+            "first_frame_s": 0.010219750001851935,
+            "start_http_returned_s": 0.0103264580029645,
+            "sim_states_received": 5,
+            "frames_total": 8515,
+            "frames_per_s": 0.4999585346888604,
+            "bytes_per_s": 871.6777052300281,
+            "last_sim_time_s": 8.0
+          }
+        ]
+      },
+      {
+        "speed": 60,
+        "frames_total": 8515,
+        "sim_states_received": 300,
+        "first_frame_s": {
+          "median": 0.0104061,
+          "min": 0.0102333,
+          "max": 0.0120252,
+          "n": 3
+        },
+        "start_http_returned_s": {
+          "median": 0.010433,
+          "min": 0.0103207,
+          "max": 0.0120566,
+          "n": 3
+        },
+        "frames_per_s": {
+          "median": 29.9976,
+          "min": 29.9971,
+          "max": 29.9976,
+          "n": 3
+        },
+        "bytes_per_s": {
+          "median": 44181.4,
+          "min": 44180.7,
+          "max": 44181.4,
+          "n": 3
+        },
+        "repeats_raw": [
+          {
+            "first_frame_s": 0.010233291002805345,
+            "start_http_returned_s": 0.01032070800283691,
+            "sim_states_received": 300,
+            "frames_total": 8515,
+            "frames_per_s": 29.997588153774196,
+            "bytes_per_s": 44181.43103142013,
+            "last_sim_time_s": 598.0
+          },
+          {
+            "first_frame_s": 0.010406125002191402,
+            "start_http_returned_s": 0.010432957999000791,
+            "sim_states_received": 300,
+            "frames_total": 8515,
+            "frames_per_s": 29.99708656960093,
+            "bytes_per_s": 44180.69228180986,
+            "last_sim_time_s": 598.0
+          },
+          {
+            "first_frame_s": 0.012025208001432475,
+            "start_http_returned_s": 0.012056624997057952,
+            "sim_states_received": 300,
+            "frames_total": 8515,
+            "frames_per_s": 29.99756570858661,
+            "bytes_per_s": 44181.3979734122,
+            "last_sim_time_s": 598.0
+          }
+        ]
+      },
+      {
+        "speed": 1000,
+        "frames_total": 8515,
+        "sim_states_received": 294,
+        "first_frame_s": {
+          "median": 0.0123295,
+          "min": 0.0113792,
+          "max": 0.0201555,
+          "n": 3
+        },
+        "start_http_returned_s": {
+          "median": 0.0128631,
+          "min": 0.0115366,
+          "max": 0.0212082,
+          "n": 3
+        },
+        "frames_per_s": {
+          "median": 29.3892,
+          "min": 29.3784,
+          "max": 29.4381,
+          "n": 3
+        },
+        "bytes_per_s": {
+          "median": 46951.2,
+          "min": 46929.0,
+          "max": 47023.4,
+          "n": 3
+        },
+        "repeats_raw": [
+          {
+            "first_frame_s": 0.011379208001017105,
+            "start_http_returned_s": 0.0115366250029183,
+            "sim_states_received": 294,
+            "frames_total": 8515,
+            "frames_per_s": 29.438136491967175,
+            "bytes_per_s": 47023.3539519656,
+            "last_sim_time_s": 9702.0
+          },
+          {
+            "first_frame_s": 0.020155457998043858,
+            "start_http_returned_s": 0.021208166996075306,
+            "sim_states_received": 294,
+            "frames_total": 8515,
+            "frames_per_s": 29.38917348541476,
+            "bytes_per_s": 46951.16057770423,
+            "last_sim_time_s": 9668.0
+          },
+          {
+            "first_frame_s": 0.012329542005318217,
+            "start_http_returned_s": 0.012863125004514586,
+            "sim_states_received": 294,
+            "frames_total": 8515,
+            "frames_per_s": 29.378405579439058,
+            "bytes_per_s": 46929.04501907678,
+            "last_sim_time_s": 9752.0
+          }
+        ]
+      },
+      {
+        "speed": 1000000.0,
+        "frames_total": 8515,
+        "sim_states_received": 1215,
+        "first_frame_s": {
+          "median": 0.012751,
+          "min": 0.0120777,
+          "max": 0.0350562,
+          "n": 3
+        },
+        "start_http_returned_s": {
+          "median": 0.0136433,
+          "min": 0.013102,
+          "max": 0.0370532,
+          "n": 3
+        },
+        "frames_per_s": {
+          "median": 229.313,
+          "min": 228.766,
+          "max": 230.172,
+          "n": 3
+        },
+        "bytes_per_s": {
+          "median": 366219.0,
+          "min": 366138.0,
+          "max": 368356.0,
+          "n": 3
+        },
+        "repeats_raw": [
+          {
+            "first_frame_s": 0.012077708001015708,
+            "start_http_returned_s": 0.013643250000313856,
+            "sim_states_received": 1215,
+            "frames_total": 8515,
+            "frames_per_s": 230.17159331899177,
+            "bytes_per_s": 368355.88671856956,
+            "last_sim_time_s": 17028.0
+          },
+          {
+            "first_frame_s": 0.03505616699840175,
+            "start_http_returned_s": 0.037053166997793596,
+            "sim_states_received": 1222,
+            "frames_total": 8515,
+            "frames_per_s": 229.31285649632295,
+            "bytes_per_s": 366218.82946939796,
+            "last_sim_time_s": 17028.0
+          },
+          {
+            "first_frame_s": 0.012751041998853907,
+            "start_http_returned_s": 0.013102041993988678,
+            "sim_states_received": 1209,
+            "frames_total": 8515,
+            "frames_per_s": 228.7655149657636,
+            "bytes_per_s": 366138.2598255732,
+            "last_sim_time_s": 17016.0
+          }
+        ]
+      }
+    ],
+    "method": "uvicorn thread on 127.0.0.1:<ephemeral>, websockets asyncio client, POST /simulation/start with the speed, default 30 Hz emit cap"
+  },
+  "notes": [
+    "Wall-clock timings, shared machine (see machine_busy, load). Median of repeats; min/max kept.",
+    "tick_ms_*, compute_s, setup_s: one instrumented run per repeat; the hook is a cancel_event stand-in stamping once per tick (setup_s = time before the first tick).",
+    "first_frame_s: start_live() to the first sim_state with satellites, in-process Session, min_emit_interval=0 (so the 30 Hz cap cannot hide it; the socket run keeps the cap).",
+    "inject_s: Session.inject_failure (DEAD, highest unscheduled sat id the replan accepts) to the first sim_state after it. The harness plays a fresh LiveStream to the stated percent off the clock (lookahead full), installs it as Session._source/_cursor/_last_frame_t (private) while the driver idles at speed 0.01; the inject is real.",
+    "variant=true rows: committed v1 scenario with engine overridden in memory. Engine v2 has no recovery (no replan) yet, so its compute excludes the allocator sweep that dominates v1.",
+    "cProfile inflates every number (deterministic profiler, one run): read the ranking only.",
+    "json_us is ONE encode per frame; the server encodes every message again per connected client."
+  ]
+}
