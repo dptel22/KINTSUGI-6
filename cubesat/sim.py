@@ -207,7 +207,7 @@ class SimV1:
         self.u_evade = [np.zeros(3) for _ in range(n_sats)]
         self.t_first_detect: float | None = None
         self.n_ticks = int(round(scenario.duration_s / dt)) + 1
-        self.coverage_by_tick: list[tuple[float, float]] = []
+        self.cov: list[tuple[float, float]] = []
         self.k = 0
         self.injections: list[Failure] = []
 
@@ -297,7 +297,7 @@ class SimV1:
             self.evade_ticks_left,
             self.u_evade,
             self.n_ticks,
-            self.coverage_by_tick,
+            self.cov,
         )
         t = k * dt
         # EPS_DEGRADE fades fire (before this tick's heartbeat), in scheduled
@@ -717,10 +717,10 @@ class SimV1:
             yield self.step()
         # Time-averaged coverage over the last orbit (MASTER_PROMPT 3.4).
         window_start = self.scenario.duration_s - 2.0 * math.pi / self.n
-        tail = [c for (tick_t, c) in self.coverage_by_tick if tick_t >= window_start - 1e-9]
+        tail = [c for (tick_t, c) in self.cov if tick_t >= window_start - 1e-9]
         yield {
             "v": LOG_SCHEMA_VERSION,
-            "t": self.coverage_by_tick[-1][0],
+            "t": self.cov[-1][0],
             "state": STATE_SUMMARY,
             "coverage_mean_last_orbit": sum(tail) / len(tail),
         }

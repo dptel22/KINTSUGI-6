@@ -3,8 +3,8 @@ the engine (sim.SimV1 or sim_v2.EngineV2) at most `lookahead` ticks ahead of pla
 so the first frame costs one tick instead of the whole run and an injection costs a
 fixed horizon instead of a recompute from t = 0.
 
-Same cursor surface as session.LiveSource (scenario, header, frames, times, summary,
-skipped) plus `done` / `error`. frames/times are mutated IN PLACE (the driver holds
+Same cursor surface as session.ReplaySource (header, frames, times, summary, skipped)
+plus scenario, `done` / `error`. frames/times are mutated IN PLACE (the driver holds
 the list objects); every mutation happens under `_cv`.
 
 Snapshots: copy.deepcopy(engine) taken before each step, kept for the ticks still
@@ -16,6 +16,10 @@ replan surfaces as an error BEFORE anything is committed), then swap it in and d
 the buffered frames after the last emitted one. `scenario` always carries every
 resolved injection, so `run_scenario(stream.scenario)` replays the run from t = 0
 (v1; for v2 EngineV2(original scenario, engine.injections) is the contract).
+Known limit (pinned by tests/test_live_stream.py): a fresh run knows every failure
+from t = 0, so the future-reading `failing_soon` sets of v1's oracle hook and of
+`reassign_on_degrade` can differ from the live run, which learns of an injection only
+when it happens; replay-from-zero is then not byte-exact (eps_leader_6sat).
 
 Determinism: the engine never sees the wall clock; pacing stays in session.py.
 """
@@ -43,20 +47,16 @@ def make_engine(scenario: Scenario):
     return SimV1(scenario)
 
 
-def _cov_name(engine) -> str:
-    return "coverage_by_tick" if isinstance(engine, SimV1) else "cov"
-
-
 def _snapshot(engine):
     """Copy of `engine` sharing scenario, grid and the append-only coverage list."""
-    cov = getattr(engine, _cov_name(engine))
+    cov = engine.cov
     memo = {id(engine.scenario): engine.scenario, id(engine.grid): engine.grid, id(cov): cov}
     return copy.deepcopy(engine, memo)
 
 
 def _fork(snap):
     """Independent engine at snap.k: its own coverage list, cut to snap.k entries."""
-    cov = getattr(snap, _cov_name(snap))
+    cov = snap.cov
     memo = {id(snap.scenario): snap.scenario, id(snap.grid): snap.grid, id(cov): cov[: snap.k]}
     return copy.deepcopy(snap, memo)
 
@@ -97,7 +97,7 @@ class LiveStream:
         self._inject_lock = threading.Lock()
         self._thread = threading.Thread(target=self._produce, name="live-stream", daemon=True)
 
-    # -- session.LiveSource surface ------------------------------------------------
+    # -- session source surface ---------------------------------------------------
     @cached_property
     def earth_view(self) -> dict:
         return geo_v2.hello_fields(self.scenario) if self.scenario.engine == "v2" else {}
@@ -214,16 +214,25 @@ class LiveStream:
                 base = self._engine
             trial = _fork(base)
             trial.inject(failure)
-            snaps, lines = {}, []
+            # Snapshots and frames only for the first lookahead ticks; the rest of the
+            # horizon is the 409 check alone, and the stream resumes from `keep`.
+            snaps, lines, keep = {}, [], None
             while trial.k < min(trial.n_ticks, k_first + horizon_ticks):
                 if self._stop or (cancel is not None and cancel.is_set()):
                     raise RunCancelled(f"injection cancelled before tick {trial.k}")
-                snaps[trial.k] = _snapshot(trial)
-                lines.append(trial.step())
+                if trial.k == k_first + self.lookahead:
+                    keep = _fork(trial)
+                if keep is None:
+                    snaps[trial.k] = _snapshot(trial)
+                    lines.append(trial.step())
+                else:
+                    trial.step()
+            if keep is None:
+                keep = trial
             with self._cv:  # commit
                 if self._stop or (cancel is not None and cancel.is_set()):
                     raise RunCancelled("injection cancelled before its commit")
-                resolved = trial.injections[-1]
+                resolved = keep.injections[-1]
                 for k in sorted(self._ring):
                     if k >= k_first:
                         del self._ring[k]
@@ -233,7 +242,7 @@ class LiveStream:
                 del self.frames[k_first:], self.times[k_first:]
                 self.frames.extend(lines)
                 self.times.extend(float(line["t"]) for line in lines)
-                self._engine, self.summary, self.done, self.error = trial, None, False, None
+                self._engine, self.summary, self.done, self.error = keep, None, False, None
                 failures = [*self.scenario.failures, resolved]
                 self.scenario = self.scenario.model_copy(update={"failures": failures})
         finally:

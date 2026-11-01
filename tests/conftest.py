@@ -108,13 +108,17 @@ class SlowEngine:
     """A real SimV1 whose step() sleeps `delay` s (always, or only once something was
     injected): stands in for an oversized run at the streaming seam, make_engine."""
 
-    def __init__(self, scenario, delay: float = 0.05, after_inject: bool = False) -> None:
+    def __init__(
+        self, scenario, delay: float = 0.05, after_inject: bool = False,
+        slow_steps: float = float("inf"),
+    ) -> None:
         from cubesat.sim import SimV1
 
         self.real = SimV1(scenario)
         self.scenario, self.grid = scenario, self.real.grid
-        self.cov = self.real.coverage_by_tick
+        self.cov = self.real.cov
         self.delay, self.after_inject, self.injected = delay, after_inject, False
+        self.slow_left = slow_steps  # slow steps left (counted from the injection)
 
     k = property(lambda self: self.real.k)
     n_ticks = property(lambda self: self.real.n_ticks)
@@ -124,10 +128,11 @@ class SlowEngine:
         return self.real.header()
 
     def step(self) -> dict:
-        if not self.after_inject or self.injected:
+        if (not self.after_inject or self.injected) and self.slow_left > 0:
             import time
 
             time.sleep(self.delay)
+            self.slow_left -= 1
         return self.real.step()
 
     def inject(self, failure) -> None:
@@ -147,6 +152,7 @@ def patch_slow_engine(monkeypatch, **kwargs) -> list:
         return made[-1]
 
     monkeypatch.setattr("cubesat.live_stream.make_engine", make)
+    producer_threads(baseline=True)  # producers other tests left idle do not count
     return made
 
 

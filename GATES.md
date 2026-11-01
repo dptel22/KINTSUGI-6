@@ -648,3 +648,14 @@ Command: `uv run python -m cubesat.benchmark --mode perf --base data/scenarios -
 | nominal | 0.415 → 0.0068 | 0.41 / 0.4 / 0.432 | 0.0432 / 0.0524 / 0.0468 |
 
 All 24 rows (incl. the 5 new formation scenarios) are in the JSON; 0 inject errors in every row. Targets: first frame < 300 ms met on every row (max 0.0464 s, live_24sat); inject latency no longer grows with t_now (the 25 → 75 % spread is noise under load, not a recompute); inject < 200 ms met except live_16sat 75 % (0.294 s) and live_24sat 50 / 75 % (0.232 / 0.202 s) under load; the horizon is K + 4 + delay ticks of DEAD replan (an EPS_DEGRADE inject with the 600 s default steps 307 ticks, 0.57 s at 24 sats, reviewer measurement).
+
+### perf P1 fix round (review "fix first", 2026-11-01)
+
+- 1 (30 Hz cap at max speed): the starved-producer poll no longer clears the last emit (`_re_anchor(reset_emit=False)`); `tests/test_session_stream.py` pins ≤ 31 sim_state/s at speed 1e9 with a producer-bound engine (the bug reads 355/s in the same test) and that the burst still advances.
+- 2 (EPS inject memory): the trial steps the whole horizon for the 409 check but keeps snapshots/frames only for one lookahead and resumes from there. Measured, live_24sat, load 4.4: degrade_s 17028 s → ring 17, RSS +0 MB (was +317 MB), 21.3 s (it still steps to the run end); 600 s → 0.9 s. `degrade_s` bounded: `wire.InjectRequest` le = 86400 s (the only wire.py edit) and the session 422s an EPS fade longer than the run.
+- 3 (order-dependent test): `conftest.patch_slow_engine` baselines the producer threads; `tests/test_live_stream.py` stops every stream it starts (autouse fixture).
+- 4 (reassign_on_degrade replay): not fixed (a fresh run knows injected failures from t = 0); limit documented in `cubesat/live_stream.py` and pinned by `test_reassign_on_degrade_replay_limit_is_pinned`.
+- 5: tests on `LiveSource.with_failure` rewritten on the stream / `SlowEngine`; `LiveSource` deleted; the redundant teardown stop removed; `SimV1.coverage_by_tick` renamed `cov`, `_cov_name` dropped. Not done: shrinking `SimV1.step`'s local aliases (kept, hot loop).
+- 6: a scenario failure whose replan is infeasible beyond the first lookahead ends the stream with one critical event "... (scenario cannot recover)" and the stopped hello (pinned).
+- 7: mutants re-run on a copy of the tree (`tests/test_live_stream.py`, `test_session_stream.py`, `test_session*.py`): M1-M11 all killed (M2 lookahead 1, M3 DEAD at tick+1 against an independently built failure, M6 on v1 and v2, M7 trial ignores cancel, M8 no epoch check, M10 cap reset, M11 keep all horizon snapshots).
+- Gate after rebase on origin/backend 984d398: all 24 committed scenarios, origin/backend `sim.py` vs this `sim.py` through `cubesat.run`: 24 of 24 sha256 identical; `uv run ruff check .` exit 0; `uv run python -m pytest -p no:cacheprovider` exit 0, 1184 collected (2 skipped), load 6.8 → 20.5 (heavily shared machine).

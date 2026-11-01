@@ -2,18 +2,52 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 
 import pytest
-from conftest import TINY_SCENARIO
+from conftest import TINY_SCENARIO, patch_slow_engine
 
-from cubesat.live_stream import LiveStream, resolve
-from cubesat.scenario import Scenario, load_scenario
-from cubesat.sim import run_scenario
+from cubesat.live_stream import LOOKAHEAD, LiveStream, resolve
+from cubesat.scenario import Failure, FailureMode, Scenario, load_scenario
+from cubesat.session import _inject_horizon
+from cubesat.sim import RunCancelled, run_scenario
 from cubesat.sim_v2 import EngineV2
 
 NOMINAL = Path("data/scenarios/nominal.json")
+
+
+@pytest.fixture(autouse=True)
+def _stop_streams(monkeypatch):
+    """Every stream a test starts is stopped afterwards (no idle producers leak into
+    the thread-count checks of tests/test_session_cancel.py)."""
+    started: list[LiveStream] = []
+    real_start = LiveStream.start
+
+    def start(self):
+        started.append(self)
+        return real_start(self)
+
+    monkeypatch.setattr(LiveStream, "start", start)
+    yield
+    for stream in started:
+        stream.stop()
+    assert all(stream.join(2.0) for stream in started)
+
+
+def _expected(mode: str, sat: int, t_now: float, dt: float, degrade_s: float) -> Failure:
+    """The failure a click at t_now must mean, built independently of resolve(): a
+    silent death at t_now, a self-report on the next tick, an EPS fade starting on the
+    next tick (so its DEGRADE_START lands in a frame not yet shown)."""
+    t = {"DEAD": t_now, "THRUSTER_OUT": t_now + dt, "EPS_DEGRADE": t_now + dt + degrade_s}
+    return Failure(t=t[mode], sat_id=sat, mode=FailureMode(mode), degrade_s=degrade_s)
+
+
+def _replay(sc: Scenario, failures: list[Failure]) -> list[dict]:
+    if sc.engine == "v2":
+        return list(EngineV2(sc, failures).run())
+    return run_scenario(sc.model_copy(update={"failures": [*sc.failures, *failures]}))
 
 
 def _drain(stream: LiveStream, start: int = 0, upto: int | None = None) -> list[dict]:
@@ -63,13 +97,14 @@ def test_inject_equals_fresh_run_with_that_failure(engine, mode):
     assert k_first in (149, 150)
     stream.inject(failure, k_first, 20)
     after = _drain(stream, 150)
-    if engine == "v2":
-        replay = list(EngineV2(sc, stream.injections).run())
-    else:
-        replay = run_scenario(stream.scenario)
+    # against a fresh run with the INDEPENDENTLY built failure, not the stream's own
+    replay = _replay(sc, [_expected(mode, 2, t_now, sc.dt_s, 60.0)])
     assert replay[0] == stream.header and replay[-1] == stream.summary
     assert before[:149] == replay[1:150] and after == replay[151:-1]
     assert any(ln.get("event") for ln in after)
+    # and the stream's own record replays it too (v1: scenario; v2: EngineV2 contract)
+    own = _replay(sc, stream.injections) if engine == "v2" else run_scenario(stream.scenario)
+    assert own[151:-1] == after
 
 
 def test_inject_infeasible_changes_nothing():
@@ -103,12 +138,89 @@ def test_first_frame_is_one_tick_not_the_run():
 
 
 def test_stop_stops_the_producer_and_backpressure_bounds_it():
-    stream = LiveStream(load_scenario(NOMINAL), lookahead=5).start()
-    assert stream.wait_frame(4, 5.0)
+    assert LOOKAHEAD == 16  # P0: 10-20 ticks absorb the 40-100 ms replan / GC spikes
+    stream = LiveStream(load_scenario(NOMINAL)).start()  # the default lookahead
+    assert stream.wait_frame(LOOKAHEAD - 1, 5.0)
     time.sleep(0.05)
-    assert len(stream.frames) == 5  # nothing consumed: the producer waits
+    assert len(stream.frames) == LOOKAHEAD  # nothing consumed: the producer waits
+    stream.consume(4)
+    assert stream.wait_frame(LOOKAHEAD + 3, 5.0)
+    time.sleep(0.05)
+    assert len(stream.frames) == LOOKAHEAD + 4
     stream.stop()
     assert stream.join(2.0)
+
+
+def test_inject_cancel_stops_the_trial_promptly(monkeypatch):
+    """A cancelled inject stops at its next trial tick, not at the end of its horizon,
+    and commits nothing."""
+    patch_slow_engine(monkeypatch, delay=0.2, after_inject=True)
+    stream = LiveStream(load_scenario(NOMINAL)).start()
+    _drain(stream, 0, 10)
+    assert stream.wait_frame(10 + LOOKAHEAD - 1, 5.0)  # buffer full: the producer idles
+    frames = list(stream.frames)
+    failure, k_first = resolve(stream.scenario, 2, "DEAD", stream.times[9], 0.0)
+    cancel, raised = threading.Event(), []
+
+    def run():
+        try:
+            stream.inject(failure, k_first, 50, cancel)  # 50 x 0.2 s if never cancelled
+        except RunCancelled as exc:
+            raised.append(exc)
+
+    worker = threading.Thread(target=run)
+    t0 = time.perf_counter()
+    worker.start()
+    time.sleep(0.3)
+    cancel.set()
+    worker.join(5.0)
+    assert raised and time.perf_counter() - t0 < 1.5
+    assert stream.frames == frames and stream.injections == []
+
+
+@pytest.mark.parametrize("engine", ["v1", "v2"])
+def test_long_eps_fade_inject_keeps_only_the_lookahead(engine):
+    """Review regression: the horizon runs through the fade to the replan (for the
+    409), but snapshots and frames are kept only for one lookahead; the stream resumes
+    from there and still is the fresh run."""
+    sc = load_scenario(NOMINAL).model_copy(update={"duration_s": 1600.0})
+    sc = _v2(sc) if engine == "v2" else sc
+    stream = LiveStream(sc).start()
+    before = _drain(stream, 0, 50)
+    t_now = stream.times[49]
+    failure, k_first = resolve(stream.scenario, 3, "EPS_DEGRADE", t_now, 1000.0)
+    horizon = _inject_horizon(stream.scenario, failure, k_first)
+    assert horizon > 500
+    stream.inject(failure, k_first, horizon)
+    assert len(stream._ring) <= LOOKAHEAD + 2
+    assert len(stream.frames) <= k_first + LOOKAHEAD
+    after = _drain(stream, 50)
+    replay = _replay(sc, [_expected("EPS_DEGRADE", 3, t_now, sc.dt_s, 1000.0)])
+    assert before[:49] == replay[1:50] and after == replay[51:-1]
+
+
+def test_reassign_on_degrade_replay_limit_is_pinned():
+    """Documented limit (cubesat/live_stream.py): a fresh run knows an injected
+    failure from t = 0, so reassign_on_degrade's failing_soon set at an EARLIER fade
+    differs from the live run's. Pinned so a fix (or a silent change) is noticed; with
+    reassign_on_degrade off the same experiment replays exactly."""
+    results, leader = {}, None
+    for rod in (True, False):
+        sc = load_scenario(Path("data/scenarios/eps_leader_6sat.json")).model_copy(
+            update={"duration_s": 3000.0, "reassign_on_degrade": rod}
+        )
+        stream = LiveStream(sc).start()
+        before = _drain(stream, 0, 500)
+        if leader is None:  # the sat the degrade trigger handed the leader seat to
+            leader = next(
+                s["id"] for s in before[499]["sats"] if s["role"] == "leader" and s["id"] != 0
+            )
+        stream.inject(*resolve(stream.scenario, leader, "THRUSTER_OUT", stream.times[499],
+                               0.0)[:2], 40)
+        after = _drain(stream, 500)
+        replay = run_scenario(stream.scenario)
+        results[rod] = before[:499] == replay[1:500] and after == replay[501:-1]
+    assert results == {True: False, False: True}
 
 
 @pytest.mark.parametrize("engine", ["v1", "v2"])

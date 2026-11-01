@@ -55,7 +55,6 @@ def test_reset_cancels_in_flight_start(tmp_path, monkeypatch):
 def test_shutdown_and_abort_cancel_in_flight_start(tmp_path, monkeypatch):
     write_scenario(tmp_path, "a.json", name="a")
     patch_slow_engine(monkeypatch, delay=0.2)
-    producer_threads(baseline=True)
 
     async def main():
         _, session = make_session(tmp_path)
@@ -80,7 +79,6 @@ def test_shutdown_and_abort_cancel_in_flight_start(tmp_path, monkeypatch):
 def test_replaced_inject_is_cancelled(tmp_path, monkeypatch):
     write_scenario(tmp_path, "a.json", name="a")
     patch_slow_engine(monkeypatch, delay=0.2, after_inject=True)
-    producer_threads(baseline=True)
 
     async def main():
         _, session = make_session(tmp_path)

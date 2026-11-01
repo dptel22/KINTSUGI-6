@@ -24,9 +24,10 @@ from conftest import (
     write_tiny_scenario,
 )
 
+from cubesat.live_stream import LiveStream
 from cubesat.replay import load_jsonl
 from cubesat.scenario import load_scenario
-from cubesat.session import Hub, LiveSource, ReplaySource, Session, SessionError
+from cubesat.session import Hub, ReplaySource, Session, SessionError
 from cubesat.sim import run_scenario
 from cubesat.wire import SessionEnrich, to_messages
 
@@ -215,11 +216,13 @@ def test_inject_prefix_byte_identical(tmp_path):
         assert session.sim_time == 4.0
         await session.inject_failure("SAT-2", "DEAD")  # t_now = 4.0
         assert session.mode == "live"
+        await session.set_speed(SPEED_MAX)  # play the rest out
+        while not session.finished:
+            await asyncio.sleep(0.01)
+        src = session._source  # perf P1: the live stream keeps the played history
+        return [src.header, *src.frames, src.summary]
 
-    asyncio.run(main())
-
-    after = LiveSource.with_failure(scenario, "SAT-2", "DEAD", 4.0)
-    lines_after = [after.header] + after.frames + [after.summary]
+    lines_after = asyncio.run(main())
     prefix_before = [line for line in before if line.get("t", 0.0) < 4.0]
     prefix_after = [line for line in lines_after if line.get("t", 0.0) < 4.0]
     assert [json.dumps(line, sort_keys=True) for line in prefix_before] == [
@@ -263,7 +266,6 @@ def test_session_compute_timeout_cancels_compute_thread(tmp_path, monkeypatch):
         write_tiny_scenario(tmp_path / "scenarios")
         session.run_timeout_s = 0.05
         patch_slow_engine(monkeypatch, delay=0.2)
-        producer_threads(baseline=True)
         with pytest.raises(SessionError) as exc:
             await session.start_live("tiny.json", None, SPEED_MAX)
         assert exc.value.status_code == 504
@@ -350,10 +352,12 @@ def test_session_driver_exception_never_silent(tmp_path, monkeypatch):
 
 
 def test_session_source_shapes_match(tmp_path):
-    """LiveSource and ReplaySource expose the same frame surface -- the property
+    """LiveStream and ReplaySource expose the same frame surface -- the property
     that makes live-vs-replay drift structurally impossible (section 4)."""
     scenario = load_scenario(write_tiny_scenario(tmp_path / "scenarios", TINY_SCENARIO))
-    live = LiveSource(scenario, run_scenario(scenario))
+    live = LiveStream(scenario).start()
+    assert live.wait_frame(10**9, 10.0) and live.done  # 11 frames < one lookahead
+    live.stop()
     replay = ReplaySource(
         load_jsonl(write_log(tmp_path / "logs", "t.jsonl", tiny_log_lines()))
     )
